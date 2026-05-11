@@ -5,73 +5,199 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Моніторинг ЄДРПОУ</title>
   <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #e5e7eb;
+      --shadow: 0 6px 18px rgba(16,24,40,.05);
+      --shadow-hover: 0 12px 28px rgba(16,24,40,.10);
+      --critical: #b42318;
+      --medium: #b54708;
+      --low: #175cd3;
+      --ok: #027a48;
+      --dark: #101828;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: Arial, Helvetica, sans-serif;
-      background: #f5f7fb;
-      color: #172033;
+      background: var(--bg);
+      color: var(--text);
     }
+
     .wrap {
-      max-width: 1100px;
+      max-width: 1180px;
       margin: 0 auto;
       padding: 28px 16px 48px;
     }
-    .hero, .kpi, .card {
-      background: #fff;
-      border: 1px solid #e5e7eb;
+
+    .hero,
+    .kpi,
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
       border-radius: 18px;
-      box-shadow: 0 6px 18px rgba(16,24,40,.05);
+      box-shadow: var(--shadow);
     }
+
     .hero {
       padding: 24px;
       margin-bottom: 16px;
     }
+
     h1 {
       margin: 0 0 8px;
       font-size: 28px;
+      letter-spacing: -0.02em;
     }
+
+    h2 {
+      margin: 28px 0 14px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
     .muted {
-      color: #667085;
+      color: var(--muted);
       font-size: 14px;
     }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 14px;
       margin: 16px 0;
     }
-    .kpi {
-      padding: 18px;
+
+    .state-grid {
+      grid-template-columns: repeat(5, 1fr);
     }
+
+    .kpi {
+      padding: 18px 20px;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+    .kpi.clickable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .kpi.clickable:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+      border-color: #cbd5e1;
+    }
+
+    .kpi.active {
+      border-color: #175cd3;
+      box-shadow: 0 0 0 3px rgba(23, 92, 211, .12), var(--shadow-hover);
+    }
+
     .num {
       font-size: 30px;
       font-weight: 800;
+      line-height: 1.1;
     }
+
+    .kpi.critical .num { color: var(--critical); }
+    .kpi.medium .num { color: var(--medium); }
+    .kpi.low .num { color: var(--low); }
+    .kpi.status-active .num { color: var(--ok); }
+    .kpi.status-termination .num { color: var(--medium); }
+    .kpi.status-terminated .num { color: var(--critical); }
+    .kpi.status-bankruptcy .num { color: #7a271a; }
+    .kpi.status-not-found .num { color: var(--muted); }
+
     .toolbar {
       display: grid;
-      grid-template-columns: 1fr 220px;
+      grid-template-columns: 1fr 220px 170px;
       gap: 12px;
       margin: 18px 0;
+      align-items: center;
     }
-    input, select {
+
+    input,
+    select,
+    button {
       padding: 12px 14px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--line);
       border-radius: 12px;
       font-size: 14px;
+      background: #fff;
+      color: var(--text);
     }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      transition: background .15s ease, border-color .15s ease;
+    }
+
+    button:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .filter-note {
+      margin: -4px 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
     .card {
       padding: 16px;
       margin-bottom: 12px;
-      border-left: 6px solid #e5e7eb;
+      border-left: 6px solid var(--line);
     }
-    .critical { border-left-color: #b42318; }
-    .medium { border-left-color: #b54708; }
-    .low { border-left-color: #175cd3; }
+
+    .change-card.critical { border-left-color: var(--critical); }
+    .change-card.medium { border-left-color: var(--medium); }
+    .change-card.low { border-left-color: var(--low); }
+
+    .company-card {
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .company-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+      border-color: #cbd5e1;
+    }
+
+    .company-card:focus {
+      outline: none;
+      border-color: #175cd3;
+      box-shadow: 0 0 0 3px rgba(23, 92, 211, .16), var(--shadow-hover);
+    }
+
+    .company-card.registered { border-left-color: var(--ok); }
+    .company-card.termination { border-left-color: var(--medium); }
+    .company-card.terminated { border-left-color: var(--critical); }
+    .company-card.bankruptcy { border-left-color: #7a271a; }
+    .company-card.not_found { border-left-color: var(--muted); }
+
+    .row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
     .title {
       font-weight: 800;
       font-size: 16px;
+      line-height: 1.35;
       margin-bottom: 4px;
     }
+
     .badge {
       display: inline-block;
       padding: 4px 9px;
@@ -80,10 +206,18 @@
       font-weight: 700;
       background: #eef2ff;
       color: #3538cd;
+      white-space: nowrap;
     }
-    .badge.critical { background: #fef3f2; color: #b42318; }
-    .badge.medium { background: #fffaeb; color: #b54708; }
-    .badge.low { background: #eff8ff; color: #175cd3; }
+
+    .badge.critical { background: #fef3f2; color: var(--critical); }
+    .badge.medium { background: #fffaeb; color: var(--medium); }
+    .badge.low { background: #eff8ff; color: var(--low); }
+    .badge.registered { background: #ecfdf3; color: var(--ok); }
+    .badge.termination { background: #fffaeb; color: var(--medium); }
+    .badge.terminated { background: #fef3f2; color: var(--critical); }
+    .badge.bankruptcy { background: #fff1f3; color: #7a271a; }
+    .badge.not_found { background: #f2f4f7; color: var(--muted); }
+
     .details {
       margin-top: 10px;
       white-space: pre-wrap;
@@ -91,46 +225,171 @@
       color: #344054;
       font-size: 14px;
     }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #98a2b3;
+    }
+
     .footer {
       margin-top: 28px;
       font-size: 13px;
-      color: #667085;
+      color: var(--muted);
       line-height: 1.5;
     }
 
-    .state-grid {
-  grid-template-columns: repeat(5, 1fr);
-}
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 24, 40, .42);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+      z-index: 40;
+    }
 
-.kpi.status-active .num {
-  color: #027a48;
-}
+    .drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
 
-.kpi.status-termination .num {
-  color: #b54708;
-}
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(720px, 96vw);
+      height: 100vh;
+      background: #fff;
+      box-shadow: -18px 0 40px rgba(16,24,40,.18);
+      transform: translateX(105%);
+      transition: transform .2s ease;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+    }
 
-.kpi.status-terminated .num {
-  color: #b42318;
-}
+    .drawer.open {
+      transform: translateX(0);
+    }
 
-.kpi.status-bankruptcy .num {
-  color: #7a271a;
-}
+    .drawer-header {
+      padding: 20px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
 
-.kpi.status-not-found .num {
-  color: #667085;
-}
+    .drawer-title {
+      font-size: 20px;
+      line-height: 1.3;
+      font-weight: 800;
+      margin: 0 0 6px;
+    }
 
-.status-note {
-  font-size: 12px;
-  color: #98a2b3;
-  margin-top: 4px;
-}
-    @media (max-width: 760px) {
-      .grid { grid-template-columns: repeat(2, 1fr); }
-      .state-grid { grid-template-columns: repeat(2, 1fr); }
-      .toolbar { grid-template-columns: 1fr; }
+    .drawer-body {
+      padding: 18px 22px 32px;
+      overflow-y: auto;
+    }
+
+    .close-btn {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 8px 11px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 10px 14px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+
+    .info-label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .info-value {
+      color: #344054;
+      overflow-wrap: anywhere;
+    }
+
+    .section {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: #344054;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .pre {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #344054;
+    }
+
+    details {
+      margin-top: 10px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .state-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .grid,
+      .state-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .row {
+        display: block;
+      }
+
+      .badge {
+        margin-top: 8px;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -143,50 +402,70 @@
     </div>
 
     <div class="grid">
-      <div class="kpi"><div id="critical" class="num">0</div><div class="muted">Критичні</div></div>
-      <div class="kpi"><div id="medium" class="num">0</div><div class="muted">Середні</div></div>
-      <div class="kpi"><div id="low" class="num">0</div><div class="muted">Низькі</div></div>
-      <div class="kpi"><div id="total" class="num">0</div><div class="muted">Усього</div></div>
+      <div class="kpi clickable critical" data-severity="critical">
+        <div id="critical" class="num">0</div>
+        <div class="muted">Критичні</div>
+      </div>
+
+      <div class="kpi clickable medium" data-severity="medium">
+        <div id="medium" class="num">0</div>
+        <div class="muted">Середні</div>
+      </div>
+
+      <div class="kpi clickable low" data-severity="low">
+        <div id="low" class="num">0</div>
+        <div class="muted">Низькі</div>
+      </div>
+
+      <div class="kpi clickable" data-severity="">
+        <div id="total" class="num">0</div>
+        <div class="muted">Усього</div>
+      </div>
     </div>
 
     <h2>Стани контрагентів</h2>
 
-<div class="grid state-grid">
-  <div class="kpi status-active">
-    <div id="stateRegistered" class="num">0</div>
-    <div class="muted">Зареєстровано</div>
-  </div>
+    <div class="grid state-grid">
+      <div class="kpi clickable status-active" data-state="registered">
+        <div id="stateRegistered" class="num">0</div>
+        <div class="muted">Зареєстровано</div>
+      </div>
 
-  <div class="kpi status-termination">
-    <div id="stateTermination" class="num">0</div>
-    <div class="muted">В стані припинення</div>
-  </div>
+      <div class="kpi clickable status-termination" data-state="termination">
+        <div id="stateTermination" class="num">0</div>
+        <div class="muted">В стані припинення</div>
+      </div>
 
-  <div class="kpi status-terminated">
-    <div id="stateTerminated" class="num">0</div>
-    <div class="muted">Припинено</div>
-  </div>
+      <div class="kpi clickable status-terminated" data-state="terminated">
+        <div id="stateTerminated" class="num">0</div>
+        <div class="muted">Припинено</div>
+      </div>
 
-  <div class="kpi status-bankruptcy">
-    <div id="stateBankruptcy" class="num">0</div>
-    <div class="muted">Банкрутство</div>
-  </div>
+      <div class="kpi clickable status-bankruptcy" data-state="bankruptcy">
+        <div id="stateBankruptcy" class="num">0</div>
+        <div class="muted">Банкрутство</div>
+      </div>
 
-  <div class="kpi status-not-found">
-    <div id="stateNotFound" class="num">0</div>
-    <div class="muted">Не знайдено</div>
-  </div>
-</div>
+      <div class="kpi clickable status-not-found" data-state="not_found">
+        <div id="stateNotFound" class="num">0</div>
+        <div class="muted">Не знайдено</div>
+      </div>
+    </div>
 
     <div class="toolbar">
       <input id="search" placeholder="Пошук за назвою, ЄДРПОУ, статусом...">
+
       <select id="severity">
         <option value="">Усі пріоритети</option>
         <option value="critical">Критичні</option>
         <option value="medium">Середні</option>
         <option value="low">Низькі</option>
       </select>
+
+      <button id="resetFilters" type="button">Скинути фільтри</button>
     </div>
+
+    <div id="filterNote" class="filter-note"></div>
 
     <h2>Останні зміни</h2>
     <div id="changes"></div>
@@ -200,8 +479,24 @@
     </div>
   </div>
 
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <h2 id="drawerTitle" class="drawer-title">Дані контрагента</h2>
+        <div id="drawerSubtitle" class="muted"></div>
+      </div>
+      <button id="closeDrawer" class="close-btn" type="button" aria-label="Закрити">×</button>
+    </div>
+
+    <div id="drawerBody" class="drawer-body"></div>
+  </aside>
+
 <script>
 let data = null;
+let activeStateFilter = "";
+let activeSeverityFilter = "";
 
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, s => ({
@@ -213,7 +508,18 @@ function sevLabel(s) {
   return {critical:"Критично", medium:"Середньо", low:"Низько"}[s] || s || "—";
 }
 
-  function getStateGroup(company) {
+function stateLabel(s) {
+  return {
+    registered: "Зареєстровано",
+    termination: "В стані припинення",
+    terminated: "Припинено",
+    bankruptcy: "Банкрутство",
+    not_found: "Не знайдено",
+    other: "Інший стан"
+  }[s] || s || "—";
+}
+
+function getStateGroup(company) {
   const s = String(company.stan || "").toLowerCase();
 
   if (company.found === false || s.includes("не знайдено")) {
@@ -239,66 +545,278 @@ function sevLabel(s) {
   return "other";
 }
 
+function shortValue(value, max = 220) {
+  const text = String(value || "").trim();
+  if (text.length <= max) return text;
+  return text.slice(0, max).trim() + "…";
+}
+
+function asList(items) {
+  if (!items || !items.length) return "<div class='muted'>Немає даних</div>";
+
+  return `
+    <ul class="list">
+      ${items.map(x => `<li>${esc(x)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function infoRow(label, value) {
+  const clean = value === undefined || value === null || value === "" ? "—" : value;
+  return `
+    <div class="info-label">${esc(label)}</div>
+    <div class="info-value">${esc(clean)}</div>
+  `;
+}
+
+function renderCandidateSummary(company) {
+  const items = company.duplicate_records_summary || [];
+
+  if (!items.length) {
+    return "";
+  }
+
+  return `
+    <div class="section">
+      <h3>Кандидати з однаковим ЄДРПОУ</h3>
+      <div class="muted">Запис для dashboard обрано за правилом: стан → збіг назви → дата.</div>
+
+      ${items.map((item, idx) => `
+        <details ${idx === 0 ? "open" : ""}>
+          <summary>
+            ${esc(item.name || "Без назви")} · ${esc(item.stan || "—")} · RECORD: ${esc(item.record || "—")}
+          </summary>
+          <div class="info-grid">
+            ${infoRow("RECORD", item.record)}
+            ${infoRow("Назва", item.name)}
+            ${infoRow("Коротка назва", item.short_name)}
+            ${infoRow("ОПФ", item.opf)}
+            ${infoRow("Стан", item.stan)}
+            ${infoRow("Група стану", item.status_group)}
+            ${infoRow("Реєстрація", item.registration_info)}
+            ${infoRow("Початок припинення", item.termination_started_info)}
+            ${infoRow("Припинення", item.terminated_info)}
+            ${infoRow("Скасування припинення", item.termination_cancel_info)}
+            ${infoRow("Банкрутство / санація", item.bankruptcy_readjustment_info)}
+            ${infoRow("Score", JSON.stringify(item.score || {}, null, 2))}
+          </div>
+        </details>
+      `).join("")}
+    </div>
+  `;
+}
+
+function openCompany(company) {
+  const state = getStateGroup(company);
+
+  document.getElementById("drawerTitle").textContent = company.name || company.watch_name || "Без назви";
+  document.getElementById("drawerSubtitle").textContent =
+    `ЄДРПОУ: ${company.edrpou || "—"} · RECORD: ${company.record || "—"}`;
+
+  document.getElementById("drawerBody").innerHTML = `
+    <div>
+      <span class="badge ${esc(state)}">${esc(stateLabel(state))}</span>
+      ${company.selected_from_duplicate_records ? `<span class="badge low">Обрано з ${esc(company.candidate_count)} записів</span>` : ""}
+    </div>
+
+    <div class="info-grid">
+      ${infoRow("ЄДРПОУ", company.edrpou)}
+      ${infoRow("RECORD", company.record)}
+      ${infoRow("Назва з watchlist", company.watch_name)}
+      ${infoRow("Офіційна назва", company.name)}
+      ${infoRow("Коротка назва", company.short_name)}
+      ${infoRow("ОПФ", company.opf)}
+      ${infoRow("Стан", company.stan)}
+      ${infoRow("Found", company.found)}
+      ${infoRow("Кількість кандидатів", company.candidate_count)}
+      ${infoRow("Причина вибору", company.selection_reason)}
+      ${infoRow("Теги", (company.tags || []).join(", "))}
+      ${infoRow("Примітки", company.notes)}
+    </div>
+
+    <div class="section">
+      <h3>Реєстраційні / статусні блоки</h3>
+      <div class="info-grid">
+        ${infoRow("Реєстрація", company.registration_info)}
+        ${infoRow("Початок припинення", company.termination_started_info)}
+        ${infoRow("Припинення", company.terminated_info)}
+        ${infoRow("Скасування припинення", company.termination_cancel_info)}
+        ${infoRow("Банкрутство / санація", company.bankruptcy_readjustment_info)}
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Керівник / підписанти</h3>
+      ${asList(company.signers)}
+    </div>
+
+    <div class="section">
+      <h3>Засновники</h3>
+      ${asList(company.founders)}
+    </div>
+
+    <div class="section">
+      <h3>КБВ</h3>
+      ${asList(company.beneficiaries)}
+    </div>
+
+    ${renderCandidateSummary(company)}
+
+    <div class="section">
+      <details>
+        <summary>Raw JSON</summary>
+        <pre class="pre">${esc(JSON.stringify(company, null, 2))}</pre>
+      </details>
+    </div>
+  `;
+
+  document.getElementById("drawerBackdrop").classList.add("open");
+  document.getElementById("drawer").classList.add("open");
+  document.getElementById("drawer").setAttribute("aria-hidden", "false");
+}
+
+function closeDrawer() {
+  document.getElementById("drawerBackdrop").classList.remove("open");
+  document.getElementById("drawer").classList.remove("open");
+  document.getElementById("drawer").setAttribute("aria-hidden", "true");
+}
+
+function updateActiveCards() {
+  document.querySelectorAll("[data-state]").forEach(card => {
+    card.classList.toggle("active", card.dataset.state === activeStateFilter);
+  });
+
+  document.querySelectorAll("[data-severity]").forEach(card => {
+    card.classList.toggle("active", card.dataset.severity === activeSeverityFilter);
+  });
+}
+
+function renderFilterNote(filteredCompaniesCount, filteredChangesCount) {
+  const parts = [];
+
+  if (activeStateFilter) {
+    parts.push(`стан: ${stateLabel(activeStateFilter)}`);
+  }
+
+  if (activeSeverityFilter) {
+    parts.push(`пріоритет змін: ${sevLabel(activeSeverityFilter)}`);
+  }
+
+  const q = document.getElementById("search").value.trim();
+  if (q) {
+    parts.push(`пошук: "${q}"`);
+  }
+
+  const note = parts.length
+    ? `Активні фільтри: ${parts.join(" · ")}. Показано контрагентів: ${filteredCompaniesCount}; змін: ${filteredChangesCount}.`
+    : "";
+
+  document.getElementById("filterNote").textContent = note;
+}
+
 function render() {
+  if (!data) return;
+
   const q = document.getElementById("search").value.toLowerCase().trim();
-  const sev = document.getElementById("severity").value;
+  const selectSeverity = document.getElementById("severity").value;
+  activeSeverityFilter = selectSeverity;
 
   const summary = data.summary || {};
   document.getElementById("critical").textContent = summary.critical || 0;
   document.getElementById("medium").textContent = summary.medium || 0;
   document.getElementById("low").textContent = summary.low || 0;
   document.getElementById("total").textContent = summary.total || 0;
-  document.getElementById("generated").textContent = data.generated_at ? "Оновлено: " + data.generated_at : "Дані ще не сформовані";
-  document.getElementById("source").textContent = data.source?.last_modified ? "Джерело: " + data.source.last_modified : "";
+
+  document.getElementById("generated").textContent =
+    data.generated_at ? "Оновлено: " + data.generated_at : "Дані ще не сформовані";
+
+  document.getElementById("source").textContent =
+    data.source?.last_modified ? "Джерело: " + data.source.last_modified : "";
 
   const allCompanies = data.companies || [];
 
-const stateCounts = {
-  registered: 0,
-  termination: 0,
-  terminated: 0,
-  bankruptcy: 0,
-  not_found: 0,
-  other: 0
-};
+  const stateCounts = {
+    registered: 0,
+    termination: 0,
+    terminated: 0,
+    bankruptcy: 0,
+    not_found: 0,
+    other: 0
+  };
 
-allCompanies.forEach(company => {
-  const group = getStateGroup(company);
-  stateCounts[group] = (stateCounts[group] || 0) + 1;
-});
+  allCompanies.forEach(company => {
+    const group = getStateGroup(company);
+    stateCounts[group] = (stateCounts[group] || 0) + 1;
+  });
 
-document.getElementById("stateRegistered").textContent = stateCounts.registered || 0;
-document.getElementById("stateTermination").textContent = stateCounts.termination || 0;
-document.getElementById("stateTerminated").textContent = stateCounts.terminated || 0;
-document.getElementById("stateBankruptcy").textContent = stateCounts.bankruptcy || 0;
-document.getElementById("stateNotFound").textContent = stateCounts.not_found || 0;
+  document.getElementById("stateRegistered").textContent = stateCounts.registered || 0;
+  document.getElementById("stateTermination").textContent = stateCounts.termination || 0;
+  document.getElementById("stateTerminated").textContent = stateCounts.terminated || 0;
+  document.getElementById("stateBankruptcy").textContent = stateCounts.bankruptcy || 0;
+  document.getElementById("stateNotFound").textContent = stateCounts.not_found || 0;
 
   const changes = (data.changes || []).filter(x => {
     const blob = JSON.stringify(x).toLowerCase();
-    return (!q || blob.includes(q)) && (!sev || x.severity === sev);
+    return (!q || blob.includes(q)) && (!activeSeverityFilter || x.severity === activeSeverityFilter);
   });
 
   document.getElementById("changes").innerHTML = changes.length ? changes.map(x => `
-    <div class="card ${esc(x.severity)}">
-      <div class="title">${esc(x.name || x.watch_name || "Без назви")}</div>
-      <div class="muted">ЄДРПОУ: ${esc(x.edrpou)} · ${esc(x.change_type)}</div>
-      <div style="margin-top:8px"><span class="badge ${esc(x.severity)}">${esc(sevLabel(x.severity))}</span></div>
+    <div class="card change-card ${esc(x.severity)}">
+      <div class="row">
+        <div>
+          <div class="title">${esc(x.name || x.watch_name || "Без назви")}</div>
+          <div class="muted">ЄДРПОУ: ${esc(x.edrpou)} · RECORD: ${esc(x.record || "—")} · ${esc(x.change_type)}</div>
+        </div>
+        <span class="badge ${esc(x.severity)}">${esc(sevLabel(x.severity))}</span>
+      </div>
       <div class="details"><b>Було:</b> ${esc(x.old_value || "—")}\n<b>Стало:</b> ${esc(x.new_value || "—")}${x.details ? "\n\n" + esc(x.details) : ""}</div>
     </div>
   `).join("") : `<div class="muted">Змін за останній прогін немає.</div>`;
 
-  const companies = (data.companies || []).filter(x => {
+  const companies = allCompanies.filter(x => {
     const blob = JSON.stringify(x).toLowerCase();
-    return !q || blob.includes(q);
+    const state = getStateGroup(x);
+
+    return (!q || blob.includes(q)) && (!activeStateFilter || state === activeStateFilter);
   });
 
-  document.getElementById("companies").innerHTML = companies.length ? companies.map(x => `
-    <div class="card">
-      <div class="title">${esc(x.name || x.watch_name || "Без назви")}</div>
-      <div class="muted">ЄДРПОУ: ${esc(x.edrpou)} · ${esc(x.opf || "")}</div>
-      <div class="details"><b>Стан:</b> ${esc(x.stan || "—")}${x.signers?.length ? "\n<b>Керівник/підписанти:</b> " + esc(x.signers.join("; ")) : ""}</div>
-    </div>
-  `).join("") : `<div class="muted">Немає записів.</div>`;
+  document.getElementById("companies").innerHTML = companies.length ? companies.map((x, index) => {
+    const state = getStateGroup(x);
+
+    return `
+      <div class="card company-card ${esc(state)}" tabindex="0" data-company-index="${index}">
+        <div class="row">
+          <div>
+            <div class="title">${esc(x.name || x.watch_name || "Без назви")}</div>
+            <div class="muted">ЄДРПОУ: ${esc(x.edrpou)} · ${esc(x.opf || "")}</div>
+          </div>
+          <span class="badge ${esc(state)}">${esc(stateLabel(state))}</span>
+        </div>
+
+        <div class="details"><b>Стан:</b> ${esc(x.stan || "—")}${x.signers?.length ? "\n<b>Керівник/підписанти:</b> " + esc(shortValue(x.signers.join("; "), 300)) : ""}</div>
+
+        ${x.selected_from_duplicate_records ? `<div class="hint">Обрано з ${esc(x.candidate_count)} записів з однаковим ЄДРПОУ. Натисніть, щоб переглянути деталі.</div>` : `<div class="hint">Натисніть, щоб переглянути повні дані.</div>`}
+      </div>
+    `;
+  }).join("") : `<div class="muted">Немає записів за вибраними фільтрами.</div>`;
+
+  document.querySelectorAll(".company-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const idx = Number(card.dataset.companyIndex);
+      openCompany(companies[idx]);
+    });
+
+    card.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        const idx = Number(card.dataset.companyIndex);
+        openCompany(companies[idx]);
+      }
+    });
+  });
+
+  updateActiveCards();
+  renderFilterNote(companies.length, changes.length);
 }
 
 fetch("data/dashboard.json?v=" + Date.now())
@@ -312,7 +830,45 @@ fetch("data/dashboard.json?v=" + Date.now())
   });
 
 document.getElementById("search").addEventListener("input", render);
-document.getElementById("severity").addEventListener("change", render);
+
+document.getElementById("severity").addEventListener("change", () => {
+  activeSeverityFilter = document.getElementById("severity").value;
+  render();
+});
+
+document.querySelectorAll("[data-state]").forEach(card => {
+  card.addEventListener("click", () => {
+    const selected = card.dataset.state;
+    activeStateFilter = activeStateFilter === selected ? "" : selected;
+    render();
+  });
+});
+
+document.querySelectorAll("[data-severity]").forEach(card => {
+  card.addEventListener("click", () => {
+    const selected = card.dataset.severity || "";
+    activeSeverityFilter = activeSeverityFilter === selected ? "" : selected;
+    document.getElementById("severity").value = activeSeverityFilter;
+    render();
+  });
+});
+
+document.getElementById("resetFilters").addEventListener("click", () => {
+  activeStateFilter = "";
+  activeSeverityFilter = "";
+  document.getElementById("severity").value = "";
+  document.getElementById("search").value = "";
+  render();
+});
+
+document.getElementById("closeDrawer").addEventListener("click", closeDrawer);
+document.getElementById("drawerBackdrop").addEventListener("click", closeDrawer);
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeDrawer();
+  }
+});
 </script>
 </body>
 </html>
