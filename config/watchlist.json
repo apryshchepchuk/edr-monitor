@@ -1,0 +1,1952 @@
+[
+  {
+    "edrpou": "44816260",
+    "name": "ТОВ \"ЛДЦ \"ЗДОРОВА РОДИНА+\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35183119",
+    "name": "ТОВ \"ВІТАЦЕНТР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "23970184",
+    "name": "КП ЛОР \"МА №266\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45871275",
+    "name": "ТОВ \"СМ-ФАРМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "580309097",
+    "name": "МКЧХ",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35173100",
+    "name": "ТОВ \"ПОЛЛАР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45561921",
+    "name": "ТОВ «МЦ «САН МЕДИКАЛ УКРАЇНА»",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38058261",
+    "name": "ТОВ \"ІСТ МЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36574212",
+    "name": "ТОВ \"АР ДИ ПИ ЮКРЕЙН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "01977334",
+    "name": "ПРАТ \"АПТЕКИ ЗАПОРІЖЖЯ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36807073",
+    "name": "ТОВ \"ЛДЦ \"АЛЬЯНС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45880049",
+    "name": "ТОВ \"АКСАНА КЛІНІК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40822312",
+    "name": "ТЗОВ \"ПОДОРОЖНИК СТАНІСЛАВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45530668",
+    "name": "ТОВ \"ФАРМ МАКСИМУМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "33263679",
+    "name": "ТОВ \"МЦ\"АЛЬТАМЕДИКА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40456716",
+    "name": "ТОВ \"ПРИКАРПАТСЬКИЙ ЦЕНТР ЯДЕРНОЇ МЕДИЦИНИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "22974151",
+    "name": "ТОВ \"АПТЕКА ГОРМОНАЛЬНИХ ПРЕПАРАТІВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35776453",
+    "name": "ТОВ \"ТОЧКА ЗДОРОВ'Я\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "02011976",
+    "name": "ДНП \"НІР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40477029",
+    "name": "ТОВ \"ДІАЛІЗ МЕДИК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41199650",
+    "name": "ТЗОВ \"ПОДОРОЖНИК КИЇВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42199138",
+    "name": "ТЗОВ \"ПРЕДСТАВНИЦТВО БАУМ ФАРМ ГМБХ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34623435",
+    "name": "ТОВ \"СІМЕДГРУП\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34048360",
+    "name": "ТОВ \"ФАРМАСТОР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38479839",
+    "name": "ТОВ \"ФАРМА-СВІТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "13838294",
+    "name": "ТЗОВ \"МАРКЕТ УНІВЕРСАЛ ЛТД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "21642228",
+    "name": "СП \"ОПТІМА-ФАРМ, ЛТД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "high"
+  },
+  {
+    "edrpou": "30765625",
+    "name": "ПП ВКФ \"СКАЙІНВЕСТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41364731",
+    "name": "ТОВ \"САНДЕРС ЛОФТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "22065477",
+    "name": "ФІРМА \"САНІТАС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "21032062",
+    "name": "ТОВ \"АПТЕКА ГАЄВСЬКОГО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "14255011",
+    "name": "ТОВ ФІРМА \"ЛАКС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "25184975",
+    "name": "ТОВ \"ТОМАШ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38994526",
+    "name": "ТОВ \"ЛІДЕР-ЗАХІД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "20036365",
+    "name": "ПП \"ЯН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "30886474",
+    "name": "ТОВ \"ГАЛАФАРМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "20463185",
+    "name": "ТОВ \" ХУСТФАРМ \"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "21560045",
+    "name": "АТ \"УКРПОШТА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36962419",
+    "name": "ТОВ \"АСМА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "30478073",
+    "name": "ТЗОВ \"ДЕКАДА-2000\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "21738610",
+    "name": "ТЗОВ ФІРМА \"ВОЛИНЬФАРМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "05415852",
+    "name": "КП\"ФАРМАЦІЯ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37068787",
+    "name": "ТОВ \"ДОЛФІ-УКРАЇНА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "23060192",
+    "name": "ПП \"КОНЕКС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40581739",
+    "name": "ТОВ \"ДОЙЧ-ФАРМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36986115",
+    "name": "ТОВ \"ЦЕНТР ПРОМЕНЕВОЇ ДІАГНОСТИКИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35663369",
+    "name": "ТОВ \"ГЕМО МЕДИКА УКРАЇНА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36407043",
+    "name": "ТОВ \"МДЦ ЕКСПЕРТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38557859",
+    "name": "УБФ \"ЦЕНТР МЕДИЧНИХ ІННОВАЦІЙ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40079783",
+    "name": "ТОВ \"МЕДИЧНИЙ ЦЕНТР \"ПОЛІМЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38177160",
+    "name": "ПП \"ЛДЦ \"ВАШЕ ЗДОРОВ'Я\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35637575",
+    "name": "ПП \"ЦЕНТР МАГНІТНО-РЕЗОНАНСНОЇ ТОМОГРАФІЇ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45592588",
+    "name": "ТОВ «ОРГАНІЯФАРМ»",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45407071",
+    "name": "ТОВ \"ЕМБІ МЕДІКАЛ ЦЕНТР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38798256",
+    "name": "ТОВ \"ДЦ \"САНІТАС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44228448",
+    "name": "ТОВ \"НЕЙРОМЕД С\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37019986",
+    "name": "ТОВ \"МДЦ ЕКСПЕРТ-ЖИТОМИР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36611641",
+    "name": "ТОВ \"ЛІДЕРМЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "20875278",
+    "name": "ПП \"МЕДИЦИНА ДЛЯ ВАС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37607374",
+    "name": "ТОВ \"ЛДЦ МІБС-ОДЕСА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44917292",
+    "name": "ТОВ \"ІННОВАДІАГНОСТИКА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36002788",
+    "name": "ТОВ \"ЛДЦ МІБС-КИЇВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44530295",
+    "name": "ТОВ \"Медицея\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42596380",
+    "name": "ТОВ \"УкрМедГрупа\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43275806",
+    "name": "ТОВ \"ПРОДІАГНОСТИК ПП\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36225437",
+    "name": "ТОВ \"ГЕМО МЕДИКА ХАРКІВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43276176",
+    "name": "ТОВ \"ПРОДІАГНОСТИК ХГ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38574041",
+    "name": "ТОВ \"МЦ \"МЕДІКАП\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42628050",
+    "name": "ТОВ \"ПРОДІАГНОСТИК ЦЕНТР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44669455",
+    "name": "ТОВ \"АМО ДІАГНОСТИКА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38218086",
+    "name": "ТОВ \"АМЕТРІН ФК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36004607",
+    "name": "ТОВ \"МЕДИЧНИЙ ЦЕНТР АСКЛЕПІЙ ПЛЮС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43506696",
+    "name": "ТОВ \"ФАРМАКЛУБ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38737616",
+    "name": "ТОВ \"ДІАТОМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40079249",
+    "name": "ТОВ \"МЕДИСТАР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35249881",
+    "name": "ТОВ \"ДЦ\"МЕДЕКС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38996214",
+    "name": "ТОВ \"ДАЙКОМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34974155",
+    "name": "ТОВ \"МЕДІКУМ-ЛП\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34315675",
+    "name": "ТОВ \"ЕНДОТЕХНОМЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "31305675",
+    "name": "ТОВ \"ТД \"ОМЕГА-КИЇВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35923850",
+    "name": "ПП \"ЦЕНТР КОМП'ЮТЕРНОЇ ТОМОГРАФІЇ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43101018",
+    "name": "ТОВ \"ЄВРОМЕДИК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "33575721",
+    "name": "ТОВ \"БМДЦ ПЛЮС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "30950114",
+    "name": "ТОВ \"БМДЦ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "30742592",
+    "name": "КОМПАНІЯ \"ДЖИН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40575306",
+    "name": "ТОВ \"ЄВРО СЕРВІС УКРАЇНА ЗАПОРІЖЖЯ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43507181",
+    "name": "ТОВ \"МАГНІТОМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38665065",
+    "name": "ТОВ \"МЦ \"ЮНІМЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42441874",
+    "name": "ТОВ \"БРИГІД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37874051",
+    "name": "ТОВ \"СЕВІЛЬЯ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34639424",
+    "name": "ПП \"ЛІДІЯ-3000\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35832360",
+    "name": "ТОВ \"КЛІНІКА \"МЕДГАРАНТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38960110",
+    "name": "ТОВ \"МЦ АСКЛЕПІЙ КИЇВ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38791579",
+    "name": "ТОВ \"ЕНГЕЛЬХОЛЬМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "32137688",
+    "name": "ТОВ \"ЦТО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34933234",
+    "name": "ПП\"ФЛОРІС-С\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "32275353",
+    "name": "ТОВ \"ЄВРОПЕЙСЬКА МЕДИЦИНА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37913638",
+    "name": "ПП \"ВИТА-МЕД І\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "33471877",
+    "name": "ТОВ \"КРАМ ІНВЕСТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43840895",
+    "name": "\"ДжиБіЕль Клінік\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37223446",
+    "name": "ТОВ \"ЛДЦ ЗДОРОВ'Я\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45690399",
+    "name": "ТОВ \"А-МЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "39788216",
+    "name": "ТОВ\" ФІОЛЕТ - М\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41254255",
+    "name": "ТОВ \"ЧЕКЛАЙФ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37974205",
+    "name": "ТОВ \"МЕДИЧНА КЛІНІКА \"ВІВА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42761828",
+    "name": "ТОВ \"М-24\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36452223",
+    "name": "ПП \"ЦЕНТР ЛІТОТРІПСІЇ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43547512",
+    "name": "ТОВ\"АШ БІ МЕДІКАЛ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "31444479",
+    "name": "ПП \"СИГМА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "39509717",
+    "name": "ТОВ \"МЕДІСКАН ГРУП\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43786089",
+    "name": "ТОВ \"МЕДІСКАН ГРУП ЧЕРКАСИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "31521356",
+    "name": "ПП \"КЛІНІКА МЕДІКОМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41176146",
+    "name": "ТОВ \"КИПЛАЙФ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37995707",
+    "name": "ТОВ\"ПРЕОБРАЖЕНСЬКА КЛІНІКА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36158586",
+    "name": "ТОВ \"КЛІНІКА ОКСФОРД МЕДІКАЛ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36546976",
+    "name": "ТОВ \"ВІОТЕХСОМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34692776",
+    "name": "ТОВ \"ВІЖН ПАРТНЕР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44438580",
+    "name": "ТОВ \"КЛІНІКА ФІДО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41555668",
+    "name": "ТОВ \"ЛДЦ\"КІНДЕРЛЕНД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37847337",
+    "name": "ТОВ \"ЛДЦ \"АДОНІС ПЛЮС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40532571",
+    "name": "ТОВ \"ЛІКУВАЛЬНО-ДІАГНОСТИЧНИЙ ЦЕНТР \"АДОНІС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43807137",
+    "name": "ТОВ \"АДОНІС-ЛАБ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34875712",
+    "name": "ПВНЗ \"ІНСТИТУТ ЗАГАЛЬНОЇ ПРАКТИКИ - СІМЕЙНОЇ МЕДИЦИНИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44062019",
+    "name": "ТОВ \"ОЛВІ МЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "31816235",
+    "name": "ТОВ \"БАДМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "high"
+  },
+  {
+    "edrpou": "21947206",
+    "name": "ТОВ \"ВЕНТА. ЛТД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "high"
+  },
+  {
+    "edrpou": "33103356",
+    "name": "ТОВ \"МЦ \"СІ ЕМ СІ МЕД\" - стара назва ТОВ \"ЄВРОЛАБ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37066748",
+    "name": "ТОВ \"МЕДКОР ЮГ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "32109302",
+    "name": "ТОВ \"МЕДІКС-РЕЙ ІНТЕРНЕШНЛ ГРУП\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45861272",
+    "name": "ТОВ \"МЕДИЧНИЙ ДІМ \"ОДРЕКС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "36484040",
+    "name": "ТОВ \"ДОКТОР ФІЛІН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40857083",
+    "name": "ТОВ \"МЕДКЛІНІК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "32381903",
+    "name": "ТОВ \"КАПИТАЛ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43604989",
+    "name": "ТОВ \"МІРУМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45301921",
+    "name": "ТОВ \"АНТАРЕС-МЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "34818539",
+    "name": "ТОВ \"НЕОМЕД 2007\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43316737",
+    "name": "ТОВ \"СІТІ НЕТ-ЛАБ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44330773",
+    "name": "ТОВ «МТН»",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "39085516",
+    "name": "ТОВ\"УЦТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45602763",
+    "name": "ТОВ \"МІКОМЕД+\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "32193145",
+    "name": "ТОВ \"МЦ \"КЛІНІКА СІМЕЙНОЇ МЕДИЦИНИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44929439",
+    "name": "ТОВ \"НЕЙРОМЕД Т\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44917444",
+    "name": "ТОВ \"НЕЙРОМЕД Л\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41495447",
+    "name": "ТОВ \"НЕЙРОМЕД В\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "35904094",
+    "name": "ТОВ \"СКАН ЛАЙТ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40828911",
+    "name": "ТОВ \"НЕЙРОМЕД К\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42574629",
+    "name": "ДП \"МЕДЗАКУПІВЛІ УКРАЇНИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43808856",
+    "name": "ТОВ \"СТМ-Фарм\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "23935503",
+    "name": "ТОВ НВП \"МЕДИЦИНСЬКІ СИСТЕМИ І ТЕХНОЛОГІЇ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40862638",
+    "name": "ТОВ \"ОРТОПЕДІКС-ПЛЮС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38243196",
+    "name": "ТОВ \"МЦ \"ЄВРОКЛІНІК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37159622",
+    "name": "ТОВ \"ЛІКУВАЛЬНО-ДІАГНОСТИЧНИЙ ЦЕНТР \"МЕДІЛЮКС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44308596",
+    "name": "ТОВ \"ЦЕНТР СПЕЦІАЛІЗОВАНИХ МЕДИЧНИХ ДОСЛІДЖЕНЬ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41935984",
+    "name": "ТОВ \"ЛАЙФ СКАН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43236496",
+    "name": "ТОВ \"КИЙМЕДІКАЛ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "33247526",
+    "name": "ТОВ \"МЕДІКУМ-ЛК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40339704",
+    "name": "ТОВ \"КАРДІКА АСІСТАНС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "39496441",
+    "name": "ТОВ \"МЕДИЧНИЙ ЦЕНТР \"КЛІНІКА НОВА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38071552",
+    "name": "ТОВ \"МЛДЦ \"МЕДІОН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "39320894",
+    "name": "ТОВ \"МЕДИЧНИЙ ЦЕНТР \"ГЕНЕЗИС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37024451",
+    "name": "ТОВ \"СУЧАСНІ ДІАГНОСТИЧНІ СИСТЕМИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "30613643",
+    "name": "ТОВ \"МСЧ \"НАФТОХІМІК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38164680",
+    "name": "ТОВ \"МДЦ ЕКСПЕРТ-КІРОВОГРАД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "33507541",
+    "name": "ТОВ \"ДІАГНОСТИЧНИЙ ЦЕНТР ЮЖ-УКРМЕДТЕХ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40891229",
+    "name": "ТОВ \"ЦЕНТР ЛАБОРАТОРНОЇ МЕДИЦИНИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41881248",
+    "name": "ТОВ \"КЛІНІКА ДОКТОРА МЕДВЕДЕВА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "33175661",
+    "name": "\"ДІАСЕРВІС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41847055",
+    "name": "ТОВ \"ОФТАЛЬМОЛОГО-ЕНДОКРІНОЛОГІЧНИЙ ЦЕНТР \"ОКУЛЮС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38268561",
+    "name": "ТОВ \"АЛЬБА-СІТІ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42906027",
+    "name": "ТОВ \"МРТ ПЛЮС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37398906",
+    "name": "ТОВ \"ОКСФОРД МЕДІКАЛ ЗАХІД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "41713696",
+    "name": "ТОВ \"ЛОР КЛІНІКА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45718780",
+    "name": "ТОВ \"Медклінік LТD\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44915667",
+    "name": "ТОВ \"КЛІНІКА ОРТОПЕДИЧНОЇ ХІРУРГІЇ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "39308400",
+    "name": "ТОВ \"Північ-Фарм\" - стара назва ТОВ \"АПТЕКА ТОНУС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42923681",
+    "name": "ТОВ \"ІКСІ КЛІНІКА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45458372",
+    "name": "ТОВ «МЕДІКАЛ ІМЕЙДЖН»",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44998633",
+    "name": "ТОВ \"ЦЕНТР СУЧАСНОЇ ХІРУРГІЇ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45287698",
+    "name": "ТОВ \"ОБЛАСНИЙ МЕДИЧНИЙ ЦЕНТР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38115324",
+    "name": "ТОВ \"ЕКОДНІПРО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "31452873",
+    "name": "ПП \"БУДАГРО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "42585342",
+    "name": "ТОВ \"КТ САРНИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43659886",
+    "name": "ТОВ \"НДЦ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "37331270",
+    "name": "ТОВ \"УПМО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "40545575",
+    "name": "ТОВ \"МІКОМЕД\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45210667",
+    "name": "ТОВ \"МІСЬКИЙ МЕДИЧНИЙ ЦЕНТР\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "20037376",
+    "name": "ТОВ \"ФАРМАКО\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "31449860",
+    "name": "ТОВ \"ЛЕКФАРМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45273617",
+    "name": "БО \"БФ \"ОПЕРТЯ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "38611580",
+    "name": "ТОВ \"ГАРМОНІЯ КРАСИ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45083307",
+    "name": "БО \"БФ ім. В. МАШУРОВА\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "44180532",
+    "name": "ТОВ \"ЛДЦ \"ВІТАМІН\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45482955",
+    "name": "ТОВ \"ІНТЕГРОСС\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "45485909",
+    "name": "ТОВ \"МЕДКАМ\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  },
+  {
+    "edrpou": "43380514",
+    "name": "ТОВ \"АСК\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
+  }
+]
