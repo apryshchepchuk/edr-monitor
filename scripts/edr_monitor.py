@@ -7,6 +7,7 @@ import re
 import shutil
 import smtplib
 import sys
+import time
 import zipfile
 from datetime import datetime
 from email.header import Header
@@ -220,20 +221,132 @@ def source_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
     return comparable(old) != new_cmp
 
 
+def get_expected_size(url: str) -> int:
+    headers = {"User-Agent": "edrpou-monitor/1.0", "Accept-Encoding": "identity"}
+
+    try:
+        r = requests.head(url, allow_redirects=True, timeout=45, headers=headers)
+        if r.status_code < 400:
+            size = parse_content_length(r.headers)
+            return int(size) if str(size).isdigit() else 0
+    except requests.RequestException as exc:
+        print(f"Could not get expected size by HEAD: {exc}", file=sys.stderr)
+
+    return 0
+
+
 def download_zip(url: str, dest: Path) -> None:
     print(f"Downloading: {url}")
+
     dest.parent.mkdir(parents=True, exist_ok=True)
-    part = dest.with_suffix(".zip.part")
+    part = dest.with_suffix(dest.suffix + ".part")
 
-    with requests.get(url, stream=True, timeout=(30, 300), allow_redirects=True) as r:
-        r.raise_for_status()
-        with part.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    f.write(chunk)
+    expected_size = get_expected_size(url)
+    if expected_size:
+        print(f"Expected size: {expected_size:,} bytes")
 
-    part.replace(dest)
-    print(f"Downloaded: {dest} ({dest.stat().st_size:,} bytes)")
+    if dest.exists() and expected_size and dest.stat().st_size == expected_size:
+        print(f"ZIP already downloaded: {dest}")
+        return
+
+    max_attempts = 8
+    base_headers = {
+        "User-Agent": "edrpou-monitor/1.0",
+        "Accept-Encoding": "identity",
+    }
+
+    for attempt in range(1, max_attempts + 1):
+        existing_size = part.stat().st_size if part.exists() else 0
+
+        if expected_size and existing_size > expected_size:
+            print("Partial file is larger than expected. Removing it.")
+            part.unlink(missing_ok=True)
+            existing_size = 0
+
+        headers = dict(base_headers)
+
+        if existing_size > 0:
+            headers["Range"] = f"bytes={existing_size}-"
+            print(
+                f"Download attempt {attempt}/{max_attempts}: "
+                f"resuming from {existing_size:,} bytes"
+            )
+        else:
+            print(f"Download attempt {attempt}/{max_attempts}: starting from zero")
+
+        try:
+            with requests.get(
+                url,
+                stream=True,
+                timeout=(30, 300),
+                allow_redirects=True,
+                headers=headers,
+            ) as r:
+                if existing_size > 0 and r.status_code == 200:
+                    # Server ignored Range. Start over.
+                    print("Server ignored Range header. Restarting full download.")
+                    part.unlink(missing_ok=True)
+                    existing_size = 0
+                    mode = "wb"
+                elif r.status_code == 206:
+                    mode = "ab"
+                elif r.status_code == 416 and expected_size and existing_size == expected_size:
+                    print("Partial file already complete.")
+                    part.replace(dest)
+                    return
+                else:
+                    r.raise_for_status()
+                    mode = "wb"
+
+                downloaded_this_attempt = 0
+
+                with part.open(mode) as f:
+                    for chunk in r.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded_this_attempt += len(chunk)
+
+                current_size = part.stat().st_size
+                print(
+                    f"Downloaded this attempt: {downloaded_this_attempt:,} bytes; "
+                    f"partial size: {current_size:,} bytes"
+                )
+
+                if expected_size:
+                    if current_size == expected_size:
+                        part.replace(dest)
+                        print(f"Downloaded to {dest} ({dest.stat().st_size:,} bytes)")
+                        return
+
+                    print(
+                        f"Download incomplete: {current_size:,}/{expected_size:,} bytes. "
+                        "Will retry."
+                    )
+                else:
+                    # If size is unknown, accept a non-empty completed response.
+                    if current_size > 0:
+                        part.replace(dest)
+                        print(f"Downloaded to {dest} ({dest.stat().st_size:,} bytes)")
+                        return
+
+        except (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ReadTimeout,
+            requests.exceptions.Timeout,
+            requests.exceptions.RequestException,
+        ) as exc:
+            print(f"Download attempt {attempt} failed: {exc}", file=sys.stderr)
+
+        sleep_seconds = min(60, 5 * attempt)
+        print(f"Waiting {sleep_seconds} seconds before retry...")
+        time.sleep(sleep_seconds)
+
+    current_size = part.stat().st_size if part.exists() else 0
+    raise RuntimeError(
+        f"Could not download ZIP after {max_attempts} attempts. "
+        f"Partial size: {current_size:,}; expected: {expected_size:,}"
+    )
 
 
 def load_watchlist() -> dict[str, dict[str, Any]]:
