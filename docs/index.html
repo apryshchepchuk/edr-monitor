@@ -97,8 +97,39 @@
       color: #667085;
       line-height: 1.5;
     }
+
+    .state-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.kpi.status-active .num {
+  color: #027a48;
+}
+
+.kpi.status-termination .num {
+  color: #b54708;
+}
+
+.kpi.status-terminated .num {
+  color: #b42318;
+}
+
+.kpi.status-bankruptcy .num {
+  color: #7a271a;
+}
+
+.kpi.status-not-found .num {
+  color: #667085;
+}
+
+.status-note {
+  font-size: 12px;
+  color: #98a2b3;
+  margin-top: 4px;
+}
     @media (max-width: 760px) {
       .grid { grid-template-columns: repeat(2, 1fr); }
+      .state-grid { grid-template-columns: repeat(2, 1fr); }
       .toolbar { grid-template-columns: 1fr; }
     }
   </style>
@@ -117,6 +148,35 @@
       <div class="kpi"><div id="low" class="num">0</div><div class="muted">Низькі</div></div>
       <div class="kpi"><div id="total" class="num">0</div><div class="muted">Усього</div></div>
     </div>
+
+    <h2>Стани контрагентів</h2>
+
+<div class="grid state-grid">
+  <div class="kpi status-active">
+    <div id="stateRegistered" class="num">0</div>
+    <div class="muted">Зареєстровано</div>
+  </div>
+
+  <div class="kpi status-termination">
+    <div id="stateTermination" class="num">0</div>
+    <div class="muted">В стані припинення</div>
+  </div>
+
+  <div class="kpi status-terminated">
+    <div id="stateTerminated" class="num">0</div>
+    <div class="muted">Припинено</div>
+  </div>
+
+  <div class="kpi status-bankruptcy">
+    <div id="stateBankruptcy" class="num">0</div>
+    <div class="muted">Банкрутство</div>
+  </div>
+
+  <div class="kpi status-not-found">
+    <div id="stateNotFound" class="num">0</div>
+    <div class="muted">Не знайдено</div>
+  </div>
+</div>
 
     <div class="toolbar">
       <input id="search" placeholder="Пошук за назвою, ЄДРПОУ, статусом...">
@@ -153,6 +213,32 @@ function sevLabel(s) {
   return {critical:"Критично", medium:"Середньо", low:"Низько"}[s] || s || "—";
 }
 
+  function getStateGroup(company) {
+  const s = String(company.stan || "").toLowerCase();
+
+  if (company.found === false || s.includes("не знайдено")) {
+    return "not_found";
+  }
+
+  if (s.includes("банкрут")) {
+    return "bankruptcy";
+  }
+
+  if (s.includes("в стані припинення")) {
+    return "termination";
+  }
+
+  if (s.includes("припинено")) {
+    return "terminated";
+  }
+
+  if (s.includes("зареєстровано")) {
+    return "registered";
+  }
+
+  return "other";
+}
+
 function render() {
   const q = document.getElementById("search").value.toLowerCase().trim();
   const sev = document.getElementById("severity").value;
@@ -164,6 +250,28 @@ function render() {
   document.getElementById("total").textContent = summary.total || 0;
   document.getElementById("generated").textContent = data.generated_at ? "Оновлено: " + data.generated_at : "Дані ще не сформовані";
   document.getElementById("source").textContent = data.source?.last_modified ? "Джерело: " + data.source.last_modified : "";
+
+  const allCompanies = data.companies || [];
+
+const stateCounts = {
+  registered: 0,
+  termination: 0,
+  terminated: 0,
+  bankruptcy: 0,
+  not_found: 0,
+  other: 0
+};
+
+allCompanies.forEach(company => {
+  const group = getStateGroup(company);
+  stateCounts[group] = (stateCounts[group] || 0) + 1;
+});
+
+document.getElementById("stateRegistered").textContent = stateCounts.registered || 0;
+document.getElementById("stateTermination").textContent = stateCounts.termination || 0;
+document.getElementById("stateTerminated").textContent = stateCounts.terminated || 0;
+document.getElementById("stateBankruptcy").textContent = stateCounts.bankruptcy || 0;
+document.getElementById("stateNotFound").textContent = stateCounts.not_found || 0;
 
   const changes = (data.changes || []).filter(x => {
     const blob = JSON.stringify(x).toLowerCase();
