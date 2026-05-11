@@ -561,19 +561,22 @@ def send_email(
             "SMTP_PASS, EMAIL_FROM, EMAIL_TO."
         )
 
-subject = (
-    "Моніторинг ЄДРПОУ: ризикові стани; "
-    f"критичні {summary.get('critical', 0)}, "
-    f"усього {summary.get('total', 0)}"
-)
+    subject = (
+        "Моніторинг ЄДРПОУ: ризикові стани; "
+        f"критичні {summary.get('critical', 0)}, "
+        f"усього {summary.get('total', 0)}"
+    )
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = str(Header(subject, "utf-8"))
     msg["From"] = format_from(email_from)
     msg["To"] = ", ".join(email_to)
 
-    msg.attach(MIMEText(build_plain(items, summary, generated_at, dashboard_url), "plain", "utf-8"))
-    msg.attach(MIMEText(build_email_html(items, summary, generated_at, source, dashboard_url), "html", "utf-8"))
+    plain_body = build_plain(items, summary, generated_at, dashboard_url)
+    html_body = build_email_html(items, summary, generated_at, source, dashboard_url)
+
+    msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     with smtplib.SMTP(smtp_host, smtp_port, timeout=60) as server:
         server.starttls()
