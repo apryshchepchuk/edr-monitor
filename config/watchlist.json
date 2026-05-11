@@ -42,7 +42,7 @@
   {
     "edrpou": "580309097",
     "name": "МКЧХ",
-    "enabled": true,
+    "enabled": false,
     "tags": [
       "покупець"
     ],
