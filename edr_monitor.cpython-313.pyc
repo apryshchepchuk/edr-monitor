@@ -1,0 +1,702 @@
+from __future__ import annotations
+
+import html
+import json
+import os
+import re
+import shutil
+import smtplib
+import sys
+import zipfile
+from datetime import datetime
+from email.header import Header
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formataddr, parseaddr
+from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import requests
+from lxml import etree
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG = ROOT / "config"
+DATA = ROOT / "data"
+DOCS_DATA = ROOT / "docs" / "data"
+TMP = ROOT / "tmp"
+
+DEFAULT_UO_URL = "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip"
+WATCHLIST = CONFIG / "watchlist.json"
+SOURCE_STATE = DATA / "source_state.json"
+CURRENT = DATA / "current.json"
+PREVIOUS = DATA / "previous.json"
+CHANGES = DATA / "changes.json"
+HISTORY = DATA / "history.json"
+DASHBOARD = DOCS_DATA / "dashboard.json"
+
+COMPARE_FIELDS = [
+    ("stan", "status_changed", "critical"),
+    ("termination_started_info", "termination_started", "critical"),
+    ("terminated_info", "terminated", "critical"),
+    ("bankruptcy_readjustment_info", "bankruptcy_started", "critical"),
+    ("signers", "signers_changed", "medium"),
+    ("founders", "founders_changed", "medium"),
+    ("beneficiaries", "beneficiaries_changed", "medium"),
+    ("short_name", "short_name_changed", "low"),
+    ("opf", "opf_changed", "low"),
+]
+
+
+def ensure_dirs() -> None:
+    for p in [DATA, DOCS_DATA, TMP]:
+        p.mkdir(parents=True, exist_ok=True)
+
+
+def tz() -> ZoneInfo:
+    return ZoneInfo(os.getenv("TIMEZONE", "Europe/Kyiv"))
+
+
+def now_iso() -> str:
+    return datetime.now(tz()).isoformat(timespec="seconds")
+
+
+def today_key() -> str:
+    return datetime.now(tz()).date().isoformat()
+
+
+def load_json(path: Path, default: Any) -> Any:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        print(f"WARNING: invalid JSON in {path}", file=sys.stderr)
+        return default
+
+
+def save_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def norm_ws(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def norm_code(value: Any) -> str:
+    return re.sub(r"\D", "", str(value or "")).strip()
+
+
+def local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+
+
+def direct_child(elem: etree._Element, name: str) -> etree._Element | None:
+    for child in elem:
+        if local(child.tag) == name:
+            return child
+    return None
+
+
+def child_text(elem: etree._Element, name: str) -> str:
+    child = direct_child(elem, name)
+    return norm_ws(" ".join(child.itertext())) if child is not None else ""
+
+
+def compact(items: list[str], limit: int = 20) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        x = norm_ws(item)
+        if x and x not in seen:
+            seen.add(x)
+            out.append(x)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def container_items(elem: etree._Element, name: str) -> list[str]:
+    container = direct_child(elem, name)
+    if container is None:
+        return []
+
+    structured = []
+    for child in container:
+        text = norm_ws(" ".join(child.itertext()))
+        if text:
+            structured.append(text)
+
+    if structured:
+        return compact(structured)
+
+    text = norm_ws(" ".join(container.itertext()))
+    return compact([text] if text else [])
+
+
+def clear_elem(elem: etree._Element) -> None:
+    elem.clear()
+    parent = elem.getparent()
+    if parent is not None:
+        while elem.getprevious() is not None:
+            del parent[0]
+
+
+def parse_len(headers: dict[str, str]) -> str:
+    content_range = headers.get("Content-Range") or headers.get("content-range")
+    if content_range and "/" in content_range:
+        return content_range.rsplit("/", 1)[-1].strip()
+    return headers.get("Content-Length") or headers.get("content-length") or ""
+
+
+def source_fingerprint(meta: dict[str, Any]) -> dict[str, str]:
+    etag = str(meta.get("etag") or "")
+    last_modified = str(meta.get("last_modified") or "")
+    content_length = str(meta.get("content_length") or "")
+    if etag:
+        return {"etag": etag}
+    if last_modified or content_length:
+        return {"last_modified": last_modified, "content_length": content_length}
+    return {}
+
+
+def probe_source(url: str) -> dict[str, str]:
+    session = requests.Session()
+    headers = {"User-Agent": "edrpou-monitor/1.0"}
+
+    try:
+        response = session.head(url, allow_redirects=True, timeout=45, headers=headers)
+        if response.status_code < 400:
+            meta = {
+                "url": url,
+                "final_url": response.url,
+                "etag": response.headers.get("ETag", ""),
+                "last_modified": response.headers.get("Last-Modified", ""),
+                "content_length": parse_len(response.headers),
+                "checked_at": now_iso(),
+                "method": "HEAD",
+            }
+            if source_fingerprint(meta):
+                return meta
+    except requests.RequestException as exc:
+        print(f"HEAD probe failed: {exc}", file=sys.stderr)
+
+    response = session.get(
+        url,
+        allow_redirects=True,
+        timeout=45,
+        headers={**headers, "Range": "bytes=0-0"},
+        stream=True,
+    )
+    response.raise_for_status()
+    for _ in response.iter_content(chunk_size=1):
+        break
+
+    return {
+        "url": url,
+        "final_url": response.url,
+        "etag": response.headers.get("ETag", ""),
+        "last_modified": response.headers.get("Last-Modified", ""),
+        "content_length": parse_len(response.headers),
+        "checked_at": now_iso(),
+        "method": "RANGE_GET",
+    }
+
+
+def source_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
+    if not old:
+        return True
+    new_fp = source_fingerprint(new)
+    if not new_fp:
+        return True
+    return source_fingerprint(old) != new_fp
+
+
+def download(url: str, dest: Path) -> None:
+    print(f"Downloading {url}")
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    with requests.get(
+        url,
+        stream=True,
+        timeout=(30, 300),
+        allow_redirects=True,
+        headers={"User-Agent": "edrpou-monitor/1.0"},
+    ) as response:
+        response.raise_for_status()
+        with tmp.open("wb") as fh:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    fh.write(chunk)
+    tmp.replace(dest)
+    print(f"Downloaded {dest} ({dest.stat().st_size:,} bytes)")
+
+
+def load_watchlist() -> dict[str, dict[str, Any]]:
+    raw = load_json(WATCHLIST, [])
+    if not isinstance(raw, list):
+        raise RuntimeError("config/watchlist.json must be a JSON array")
+
+    watch: dict[str, dict[str, Any]] = {}
+    for item in raw:
+        if not isinstance(item, dict) or item.get("enabled") is False:
+            continue
+        code = norm_code(item.get("edrpou"))
+        if code:
+            watch[code] = item
+    return watch
+
+
+def first_xml(zip_path: Path) -> str:
+    with zipfile.ZipFile(zip_path) as archive:
+        names = [name for name in archive.namelist() if name.lower().endswith(".xml")]
+    if not names:
+        raise RuntimeError("No XML file in ZIP")
+    return names[0]
+
+
+def extract_company(subject: etree._Element, watch_item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "edrpou": norm_code(child_text(subject, "EDRPOU")),
+        "watch_name": watch_item.get("name", ""),
+        "tags": watch_item.get("tags", []),
+        "notes": watch_item.get("notes", ""),
+        "watch_severity": watch_item.get("severity", "normal"),
+        "found": True,
+        "name": child_text(subject, "NAME"),
+        "short_name": child_text(subject, "SHORT_NAME"),
+        "opf": child_text(subject, "OPF"),
+        "stan": child_text(subject, "STAN"),
+        "registration_info": child_text(subject, "REGISTRATION"),
+        "termination_started_info": child_text(subject, "TERMINATION_STARTED_INFO"),
+        "terminated_info": child_text(subject, "TERMINATED_INFO"),
+        "termination_cancel_info": child_text(subject, "TERMINATION_CANCEL_INFO"),
+        "bankruptcy_readjustment_info": child_text(subject, "BANKRUPTCY_READJUSTMENT_INFO"),
+        "signers": container_items(subject, "SIGNERS"),
+        "founders": container_items(subject, "FOUNDERS"),
+        "beneficiaries": container_items(subject, "BENEFICIARIES"),
+    }
+
+
+def parse_uo(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    xml_name = first_xml(zip_path)
+    remaining = set(watch)
+    found: dict[str, dict[str, Any]] = {}
+
+    print(f"Parsing {xml_name}; watchlist codes: {len(remaining)}")
+    with zipfile.ZipFile(zip_path) as archive, archive.open(xml_name) as xml_file:
+        context = etree.iterparse(
+            xml_file,
+            events=("end",),
+            tag="{*}SUBJECT",
+            recover=True,
+            huge_tree=True,
+        )
+        processed = 0
+        for _event, elem in context:
+            processed += 1
+            if processed % 100000 == 0:
+                print(f"Processed {processed:,}; found {len(found):,}/{len(watch):,}")
+
+            code = norm_code(child_text(elem, "EDRPOU"))
+            if code in remaining:
+                found[code] = extract_company(elem, watch[code])
+                remaining.remove(code)
+                print(f"Found {code}: {found[code].get('name') or watch[code].get('name')}")
+                if not remaining:
+                    clear_elem(elem)
+                    print("All watchlist codes found; stopping early")
+                    break
+            clear_elem(elem)
+
+    for code in sorted(remaining):
+        item = watch[code]
+        found[code] = {
+            "edrpou": code,
+            "watch_name": item.get("name", ""),
+            "tags": item.get("tags", []),
+            "notes": item.get("notes", ""),
+            "watch_severity": item.get("severity", "normal"),
+            "found": False,
+            "name": "",
+            "short_name": "",
+            "opf": "",
+            "stan": "не знайдено у джерелі",
+            "registration_info": "",
+            "termination_started_info": "",
+            "terminated_info": "",
+            "termination_cancel_info": "",
+            "bankruptcy_readjustment_info": "",
+            "signers": [],
+            "founders": [],
+            "beneficiaries": [],
+        }
+    return found
+
+
+def compare_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return sorted(norm_ws(x) for x in value if norm_ws(x))
+    return norm_ws(value)
+
+
+def status_type(new_status: str) -> tuple[str, str]:
+    status = new_status.lower()
+    if "банкрут" in status:
+        return "bankruptcy_started", "critical"
+    if "в стані припинення" in status:
+        return "termination_started", "critical"
+    if "припинено" in status:
+        return "terminated", "critical"
+    return "status_changed", "medium"
+
+
+def make_change(
+    code: str,
+    company: dict[str, Any],
+    change_type: str,
+    severity: str,
+    old_value: Any,
+    new_value: Any,
+    details: str = "",
+) -> dict[str, Any]:
+    if not isinstance(old_value, str):
+        old_value = json.dumps(old_value, ensure_ascii=False)
+    if not isinstance(new_value, str):
+        new_value = json.dumps(new_value, ensure_ascii=False)
+    return {
+        "severity": severity,
+        "edrpou": code,
+        "name": company.get("name") or company.get("watch_name") or "",
+        "watch_name": company.get("watch_name", ""),
+        "tags": company.get("tags", []),
+        "change_type": change_type,
+        "old_value": old_value,
+        "new_value": new_value,
+        "details": details,
+        "detected_at": now_iso(),
+    }
+
+
+def dedupe(changes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[Any, ...]] = set()
+    out: list[dict[str, Any]] = []
+    for change in changes:
+        key = (
+            change.get("edrpou"),
+            change.get("change_type"),
+            change.get("old_value"),
+            change.get("new_value"),
+        )
+        if key not in seen:
+            seen.add(key)
+            out.append(change)
+    order = {"critical": 0, "medium": 1, "low": 2}
+    return sorted(out, key=lambda x: (order.get(x.get("severity"), 9), x.get("name", "")))
+
+
+def compare(previous: dict[str, Any], current: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    old_list = previous.get("companies", []) if isinstance(previous, dict) else []
+    old_by_code = {norm_code(c.get("edrpou")): c for c in old_list if isinstance(c, dict)}
+    if not old_by_code:
+        print("No previous snapshot. Creating baseline without alerts.")
+        return []
+
+    out: list[dict[str, Any]] = []
+    for code, current_company in sorted(current.items()):
+        old_company = old_by_code.get(code)
+        if old_company is None:
+            out.append(
+                make_change(
+                    code,
+                    current_company,
+                    "added_to_monitoring",
+                    "low",
+                    "",
+                    current_company.get("stan", ""),
+                    "Контрагент вперше зʼявився у snapshot.",
+                )
+            )
+            continue
+
+        if old_company.get("found", True) and not current_company.get("found", True):
+            out.append(
+                make_change(
+                    code,
+                    current_company,
+                    "not_found_in_source",
+                    "medium",
+                    old_company.get("stan", ""),
+                    "не знайдено у джерелі",
+                    "Код був у попередньому snapshot, але не знайдений у поточному UO.xml.",
+                )
+            )
+            continue
+
+        for field, default_type, default_severity in COMPARE_FIELDS:
+            default_empty = [] if field in {"signers", "founders", "beneficiaries"} else ""
+            old_value = compare_value(old_company.get(field, default_empty))
+            new_value = compare_value(current_company.get(field, default_empty))
+            if old_value == new_value:
+                continue
+
+            change_type = default_type
+            severity = default_severity
+            details = ""
+            if field == "stan":
+                change_type, severity = status_type(str(new_value))
+            elif field == "termination_started_info" and not old_value and new_value:
+                change_type, severity, details = "termination_started", "critical", str(new_value)
+            elif field == "terminated_info" and not old_value and new_value:
+                change_type, severity, details = "terminated", "critical", str(new_value)
+            elif field == "bankruptcy_readjustment_info" and not old_value and new_value:
+                change_type, severity, details = "bankruptcy_started", "critical", str(new_value)
+
+            out.append(make_change(code, current_company, change_type, severity, old_value, new_value, details))
+
+    return dedupe(out)
+
+
+def summarize(changes: list[dict[str, Any]]) -> dict[str, int]:
+    summary = {"critical": 0, "medium": 0, "low": 0, "total": len(changes)}
+    for change in changes:
+        if change.get("severity") in summary:
+            summary[change["severity"]] += 1
+    return summary
+
+
+def update_history(summary: dict[str, int], source: dict[str, Any]) -> list[dict[str, Any]]:
+    history = load_json(HISTORY, [])
+    if not isinstance(history, list):
+        history = []
+    history.append(
+        {
+            "date": today_key(),
+            "generated_at": now_iso(),
+            **summary,
+            "source_last_modified": source.get("last_modified", ""),
+            "source_etag": source.get("etag", ""),
+        }
+    )
+    history = history[-250:]
+    save_json(HISTORY, history)
+    return history
+
+
+def esc(value: Any) -> str:
+    return html.escape(str(value or ""))
+
+
+def severity_label(severity: str) -> str:
+    return {"critical": "Критично", "medium": "Середньо", "low": "Низько"}.get(severity, severity or "—")
+
+
+def severity_color(severity: str) -> tuple[str, str]:
+    return {
+        "critical": ("#fef3f2", "#b42318"),
+        "medium": ("#fffaeb", "#b54708"),
+        "low": ("#eff8ff", "#175cd3"),
+    }.get(severity, ("#eff8ff", "#175cd3"))
+
+
+def email_html(doc: dict[str, Any], dashboard_url: str) -> str:
+    summary = doc.get("summary", {})
+    changes = doc.get("changes", [])
+    source = doc.get("source", {})
+
+    def kpi(label: str, value: int, color: str) -> str:
+        return f"""
+        <td width="25%" style="padding:6px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e5e7eb;border-radius:14px">
+            <tr><td style="padding:16px 14px"><div style="font-size:26px;line-height:30px;font-weight:800;color:{color}">{value}</div><div style="font-size:12px;line-height:18px;color:#667085">{esc(label)}</div></td></tr>
+          </table>
+        </td>
+        """
+
+    def card(change: dict[str, Any]) -> str:
+        bg, fg = severity_color(change.get("severity", "low"))
+        details = ""
+        if change.get("details"):
+            details = f"<div style='margin-top:10px;color:#344054;font-size:13px;line-height:19px'>{esc(change.get('details'))}</div>"
+        return f"""
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;background:#fff;border:1px solid #e5e7eb;border-left:6px solid {fg};border-radius:14px">
+          <tr><td style="padding:16px 18px">
+            <table role="presentation" width="100%"><tr>
+              <td><div style="font-size:16px;line-height:22px;font-weight:800;color:#172033">{esc(change.get('name') or change.get('watch_name') or 'Без назви')}</div><div style="font-size:12px;line-height:18px;color:#667085">ЄДРПОУ: {esc(change.get('edrpou'))} · {esc(change.get('change_type'))}</div></td>
+              <td align="right"><span style="display:inline-block;background:{bg};color:{fg};font-size:12px;line-height:16px;font-weight:700;padding:4px 9px;border-radius:999px">{esc(severity_label(change.get('severity')))}</span></td>
+            </tr></table>
+            <div style="height:10px">&nbsp;</div>
+            <div style="font-size:13px;line-height:19px;color:#344054"><b>Було:</b> {esc(change.get('old_value') or '—')}<br><b>Стало:</b> {esc(change.get('new_value') or '—')}</div>{details}
+          </td></tr>
+        </table>
+        """
+
+    def section(title: str, severity: str) -> str:
+        items = [c for c in changes if c.get("severity") == severity]
+        if not items:
+            return ""
+        cards = "".join(card(c) for c in items[:30])
+        more = ""
+        if len(items) > 30:
+            more = f"<div style='font-size:13px;color:#667085;padding:4px 0 14px'>Показано 30 з {len(items)}. Повний перелік — у dashboard.</div>"
+        return f"<div style='font-size:18px;line-height:24px;font-weight:800;color:#172033;margin:22px 0 12px'>{esc(title)}</div>{cards}{more}"
+
+    button = ""
+    if dashboard_url:
+        button = f"""
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 4px"><tr><td bgcolor="#175cd3" style="border-radius:12px"><a href="{esc(dashboard_url)}" style="display:inline-block;padding:12px 18px;color:#fff;text-decoration:none;font-size:14px;font-weight:700">Переглянути dashboard</a></td></tr></table>
+        """
+
+    no_changes = ""
+    if not changes:
+        no_changes = "<table role='presentation' width='100%' style='background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin:18px 0'><tr><td style='padding:18px;color:#344054;font-size:14px;line-height:20px'>За поточний прогін змін не виявлено.</td></tr></table>"
+
+    return f"""<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f5f7fb"><center style="width:100%;background:#f5f7fb;padding:24px 0"><table role="presentation" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;margin:0 auto"><tr><td style="padding:0 16px"><table role="presentation" width="100%" style="background:#fff;border:1px solid #e5e7eb;border-radius:18px"><tr><td style="padding:24px"><div style="font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:32px;font-weight:800;color:#172033">Моніторинг ЄДРПОУ</div><div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#667085;margin-top:6px">Звіт про зміни · {esc(doc.get('generated_at'))}</div><div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#98a2b3;margin-top:6px">Джерело: {esc(source.get('last_modified') or source.get('etag') or 'оновлення перевірено')}</div></td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0"><tr>{kpi('Критичні', int(summary.get('critical', 0)), '#b42318')}{kpi('Середні', int(summary.get('medium', 0)), '#b54708')}{kpi('Низькі', int(summary.get('low', 0)), '#175cd3')}{kpi('Усього', int(summary.get('total', 0)), '#172033')}</tr></table>{no_changes}{section('Критичні зміни', 'critical')}{section('Середні зміни', 'medium')}{section('Інші зміни', 'low')}{button}<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#667085;margin-top:24px;padding:0 4px">Джерело: відкриті дані ЄДР з порталу data.gov.ua. Лист є інформаційним повідомленням і не замінює офіційний витяг з ЄДР.</div></td></tr></table></center></body></html>"""
+
+
+def email_text(doc: dict[str, Any], dashboard_url: str) -> str:
+    summary = doc.get("summary", {})
+    lines = [
+        "Моніторинг ЄДРПОУ",
+        f"Звіт: {doc.get('generated_at', '')}",
+        "",
+        f"Критичні: {summary.get('critical', 0)}",
+        f"Середні: {summary.get('medium', 0)}",
+        f"Низькі: {summary.get('low', 0)}",
+        f"Усього: {summary.get('total', 0)}",
+        "",
+    ]
+    for change in doc.get("changes", [])[:60]:
+        lines += [
+            f"- [{change.get('severity')}] {change.get('edrpou')} {change.get('name') or change.get('watch_name')}",
+            f"  {change.get('change_type')}: {change.get('old_value') or '—'} → {change.get('new_value') or '—'}",
+            "",
+        ]
+    if dashboard_url:
+        lines.append(f"Dashboard: {dashboard_url}")
+    return "\n".join(lines)
+
+
+def split_addresses(raw: str) -> list[str]:
+    return [x.strip() for x in re.split(r"[,;]", raw or "") if x.strip()]
+
+
+def from_header(raw: str) -> str:
+    name, addr = parseaddr(raw)
+    return formataddr((str(Header(name, "utf-8")), addr)) if name and addr else raw
+
+
+def send_email(doc: dict[str, Any]) -> None:
+    host = os.getenv("SMTP_HOST", "").strip()
+    port = int(os.getenv("SMTP_PORT", "587") or "587")
+    user = os.getenv("SMTP_USER", "").strip()
+    password = os.getenv("SMTP_PASS", "").strip()
+    raw_from = os.getenv("EMAIL_FROM", user).strip()
+    from_addr = parseaddr(raw_from)[1] or raw_from
+    to = split_addresses(os.getenv("EMAIL_TO", ""))
+    cc = split_addresses(os.getenv("EMAIL_CC", ""))
+    dashboard_url = os.getenv("DASHBOARD_URL", "").strip()
+
+    if not host or not user or not password or not from_addr or not to:
+        print("Email is not configured. Skipping send.")
+        return
+
+    summary = doc.get("summary", {})
+    subject = f"Моніторинг ЄДРПОУ: критичні {summary.get('critical', 0)}, середні {summary.get('medium', 0)}, усього {summary.get('total', 0)}"
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = str(Header(subject, "utf-8"))
+    msg["From"] = from_header(raw_from)
+    msg["To"] = ", ".join(to)
+    if cc:
+        msg["Cc"] = ", ".join(cc)
+    msg.attach(MIMEText(email_text(doc, dashboard_url), "plain", "utf-8"))
+    msg.attach(MIMEText(email_html(doc, dashboard_url), "html", "utf-8"))
+
+    recipients = to + cc
+    print("Sending email to " + ", ".join(recipients))
+    with smtplib.SMTP(host, port, timeout=60) as server:
+        server.starttls()
+        server.login(user, password)
+        server.sendmail(from_addr, recipients, msg.as_string())
+
+
+def build_current_doc(companies: dict[str, dict[str, Any]], source: dict[str, Any], watch_count: int) -> dict[str, Any]:
+    found_count = sum(1 for c in companies.values() if c.get("found"))
+    return {
+        "generated_at": now_iso(),
+        "source": source,
+        "stats": {"watchlist_enabled": watch_count, "found": found_count, "not_found": watch_count - found_count},
+        "companies": [companies[k] for k in sorted(companies)],
+    }
+
+
+def main() -> None:
+    ensure_dirs()
+    url = os.getenv("EDR_UO_URL", "").strip() or DEFAULT_UO_URL
+
+    old_source = load_json(SOURCE_STATE, {})
+    new_source = probe_source(url)
+    is_changed = source_changed(old_source, new_source)
+    print(f"Source changed: {is_changed}; fingerprint: {source_fingerprint(new_source)}")
+
+    force = env_bool("EMAIL_FORCE", False)
+    send_no_changes = env_bool("EMAIL_SEND_NO_CHANGES", False)
+
+    if not is_changed and not force:
+        merged = dict(old_source)
+        merged["checked_at"] = new_source.get("checked_at", now_iso())
+        merged["last_probe"] = new_source
+        save_json(SOURCE_STATE, merged)
+        print("Source not changed. Skipping download, parser, dashboard and email.")
+        return
+
+    watch = load_watchlist()
+    if not watch:
+        raise RuntimeError("No enabled EDRPOU codes in config/watchlist.json")
+
+    zip_path = TMP / "uo.zip"
+    if is_changed or not zip_path.exists():
+        download(url, zip_path)
+
+    companies = parse_uo(zip_path, watch)
+    previous = load_json(CURRENT, {})
+    current_doc = build_current_doc(companies, new_source, len(watch))
+    changes = compare(previous, companies)
+    summary = summarize(changes)
+    changes_doc = {"generated_at": now_iso(), "source": new_source, "summary": summary, "changes": changes}
+    history = update_history(summary, new_source)
+
+    if CURRENT.exists():
+        shutil.copyfile(CURRENT, PREVIOUS)
+    save_json(CURRENT, current_doc)
+    save_json(CHANGES, changes_doc)
+    save_json(SOURCE_STATE, new_source)
+    save_json(
+        DASHBOARD,
+        {
+            "generated_at": current_doc["generated_at"],
+            "source": new_source,
+            "stats": current_doc["stats"],
+            "summary": summary,
+            "companies": current_doc["companies"],
+            "changes": changes,
+            "history": history,
+        },
+    )
+
+    if changes or force or send_no_changes:
+        send_email(changes_doc)
+    else:
+        print("No changes found. Email not sent.")
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()

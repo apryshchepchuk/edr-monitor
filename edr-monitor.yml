@@ -1,0 +1,42 @@
+# Моніторинг ЄДРПОУ
+
+MVP для моніторингу стану юридичних осіб за кодами ЄДРПОУ на базі `UO.zip` з відкритих даних ЄДР.
+
+## Логіка
+
+1. GitHub Actions щодня перевіряє metadata джерела (`ETag`, `Last-Modified`, `Content-Length`).
+2. Якщо джерело не змінилося — ZIP не завантажується, XML не парситься.
+3. Якщо джерело змінилося — завантажується `UO.zip` і потоково парситься `UO.xml`.
+4. Зберігаються лише записи з `config/watchlist.json`.
+5. Формуються `current.json`, `previous.json`, `changes.json`, `history.json`.
+6. Оновлюється `docs/data/dashboard.json` для GitHub Pages.
+7. Надсилається HTML email digest, якщо є зміни або `EMAIL_FORCE=true`.
+
+## GitHub Pages
+
+Увімкнути: `Settings → Pages → Deploy from a branch → main / docs`.
+
+## Secrets
+
+```text
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your@gmail.com
+SMTP_PASS=app_password
+EMAIL_FROM=Моніторинг ЄДРПОУ <your@gmail.com>
+EMAIL_TO=recipient@example.com
+DASHBOARD_URL=https://<username>.github.io/<repo>/
+```
+
+Опційні:
+
+```text
+EDR_UO_URL=https://data.gov.ua/.../uo.zip
+EMAIL_FORCE=true
+EMAIL_SEND_NO_CHANGES=false
+TIMEZONE=Europe/Kyiv
+```
+
+## Важливо
+
+Перший успішний запуск створює baseline і не надсилає alert про всі наявні стани. Для тесту розсилки використати `EMAIL_FORCE=true`.
