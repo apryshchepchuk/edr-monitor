@@ -418,23 +418,34 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
 
     with zipfile.ZipFile(zip_path) as zf:
         with zf.open(xml_name) as xml_file:
-            context = etree.iterparse(xml_file, events=("end",), recover=True, huge_tree=True)
+            # Важливо: парсимо тільки завершені SUBJECT.
+            # Не очищаємо дочірні EDRPOU/NAME/STAN до того, як прочитаємо весь SUBJECT.
+            context = etree.iterparse(
+                xml_file,
+                events=("end",),
+                tag="SUBJECT",
+                recover=True,
+                huge_tree=True,
+            )
 
             processed = 0
-            for _event, elem in context:
-                if local_name(elem.tag) != "SUBJECT":
-                    clear_element(elem)
-                    continue
 
+            for _event, elem in context:
                 processed += 1
+
                 if processed % 100000 == 0:
                     print(f"Processed: {processed:,}; found: {len(found)}/{len(watch)}")
 
                 code = normalize_code(child_text(elem, "EDRPOU"))
+
                 if code in remaining:
                     found[code] = extract_company(elem, watch[code])
                     remaining.remove(code)
-                    print(f"Found {code}: {found[code].get('name') or watch[code].get('name')}")
+
+                    print(
+                        f"Found {code}: "
+                        f"{found[code].get('name') or watch[code].get('name')}"
+                    )
 
                     if not remaining:
                         clear_element(elem)
