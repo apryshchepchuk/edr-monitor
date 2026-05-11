@@ -283,7 +283,6 @@ def download_zip(url: str, dest: Path) -> None:
                 headers=headers,
             ) as r:
                 if existing_size > 0 and r.status_code == 200:
-                    # Server ignored Range. Start over.
                     print("Server ignored Range header. Restarting full download.")
                     part.unlink(missing_ok=True)
                     existing_size = 0
@@ -323,7 +322,6 @@ def download_zip(url: str, dest: Path) -> None:
                         "Will retry."
                     )
                 else:
-                    # If size is unknown, accept a non-empty completed response.
                     if current_size > 0:
                         part.replace(dest)
                         print(f"Downloaded to {dest} ({dest.stat().st_size:,} bytes)")
@@ -747,6 +745,8 @@ def make_change(
         "record": company.get("record", ""),
         "name": company.get("name") or company.get("watch_name") or "",
         "watch_name": company.get("watch_name") or "",
+        "opf": company.get("opf", ""),
+        "stan": company.get("stan", ""),
         "tags": company.get("tags", []),
         "change_type": change_type,
         "old_value": old_value if isinstance(old_value, str) else json.dumps(old_value, ensure_ascii=False),
@@ -851,52 +851,211 @@ def update_history(summary: dict[str, int], source: dict[str, Any]) -> list[dict
 def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
     summary = doc.get("summary", {})
     changes = doc.get("changes", [])
+    source = doc.get("source", {})
+    generated_at = doc.get("generated_at", "")
 
     def esc(v: Any) -> str:
         return html.escape(str(v or ""))
 
+    def truncate(value: Any, limit: int = 520) -> str:
+        text = normalize_ws(value)
+        if len(text) <= limit:
+            return text
+        return text[:limit].rstrip() + "…"
+
     def color(sev: str) -> str:
-        return {"critical": "#b42318", "medium": "#b54708", "low": "#175cd3"}.get(sev, "#175cd3")
+        return {
+            "critical": "#b42318",
+            "medium": "#b54708",
+            "low": "#175cd3",
+        }.get(sev, "#175cd3")
+
+    def light_bg(sev: str) -> str:
+        return {
+            "critical": "#fef3f2",
+            "medium": "#fffaeb",
+            "low": "#eff8ff",
+        }.get(sev, "#f8fafc")
 
     def label(sev: str) -> str:
-        return {"critical": "Критично", "medium": "Середньо", "low": "Низько"}.get(sev, sev or "—")
+        return {
+            "critical": "Критично",
+            "medium": "Середньо",
+            "low": "Низько",
+        }.get(sev, sev or "—")
 
-    cards = ""
-    for ch in changes[:60]:
-        c = color(ch.get("severity"))
-        cards += f"""
+    def change_label(change_type: str) -> str:
+        return {
+            "termination_started": "Початок припинення",
+            "terminated": "Припинено",
+            "bankruptcy_started": "Банкрутство / санація",
+            "status_critical_changed": "Критична зміна стану",
+            "status_changed": "Зміна стану",
+            "signers_changed": "Зміна керівника / підписантів",
+            "founders_changed": "Зміна засновників",
+            "beneficiaries_changed": "Зміна КБВ",
+            "short_name_changed": "Зміна короткої назви",
+            "opf_changed": "Зміна ОПФ",
+            "added_to_monitoring": "Додано до моніторингу",
+            "not_found_in_source": "Не знайдено в джерелі",
+            "found_in_source": "Знову знайдено в джерелі",
+        }.get(change_type, change_type or "Зміна")
+
+    def section_title(severity: str) -> str:
+        return {
+            "critical": "Критичні зміни",
+            "medium": "Потребують перевірки",
+            "low": "Інші зміни",
+        }.get(severity, "Інші зміни")
+
+    def kpi_cell(label_text: str, value: int, text_color: str, bg: str = "#ffffff") -> str:
+        return f"""
+        <td style="padding:6px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:{bg};border:1px solid #e5e7eb;border-radius:14px;">
+            <tr>
+              <td style="padding:14px;font-family:Arial,Helvetica,sans-serif;">
+                <div style="font-size:26px;line-height:30px;font-weight:800;color:{text_color};">{value}</div>
+                <div style="font-size:12px;line-height:17px;color:#667085;">{esc(label_text)}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+        """
+
+    def dashboard_button() -> str:
+        if not dashboard_url:
+            return ""
+
+        return f"""
+        <table cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
+          <tr>
+            <td bgcolor="#172033" style="border-radius:12px;">
+              <a href="{esc(dashboard_url)}" style="display:inline-block;padding:13px 18px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:14px;">
+                Переглянути повні дані в dashboard
+              </a>
+            </td>
+          </tr>
+        </table>
+        """
+
+    def info_row(label_text: str, value: Any) -> str:
+        return f"""
+        <tr>
+          <td width="145" style="padding:6px 8px 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#667085;font-weight:700;vertical-align:top;">
+            {esc(label_text)}
+          </td>
+          <td style="padding:6px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#344054;vertical-align:top;">
+            {esc(value or "—")}
+          </td>
+        </tr>
+        """
+
+    def render_card(ch: dict[str, Any]) -> str:
+        sev = ch.get("severity", "low")
+        c = color(sev)
+        bg = light_bg(sev)
+
+        details = truncate(ch.get("details"), 700)
+
+        details_block = ""
+        if details:
+            details_block = info_row("Деталі", details)
+
+        technical = []
+        if ch.get("record"):
+            technical.append(f"RECORD: {ch.get('record')}")
+        if ch.get("detected_at"):
+            technical.append(f"Виявлено: {ch.get('detected_at')}")
+
+        technical_block = ""
+        if technical:
+            technical_block = f"""
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:17px;color:#667085;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+              {esc(" · ".join(technical))}
+            </div>
+            """
+
+        return f"""
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-left:6px solid {c};border-radius:14px;margin:0 0 12px;">
-          <tr><td style="padding:16px;font-family:Arial,Helvetica,sans-serif;">
-            <div style="font-size:16px;font-weight:800;color:#172033;">{esc(ch.get("name") or ch.get("watch_name"))}</div>
-            <div style="font-size:12px;color:#667085;margin-top:3px;">ЄДРПОУ: {esc(ch.get("edrpou"))} · RECORD: {esc(ch.get("record"))} · {esc(ch.get("change_type"))}</div>
-            <div style="margin-top:8px;">
-              <span style="display:inline-block;background:#f5f7fb;color:{c};font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;">{esc(label(ch.get("severity")))}</span>
-            </div>
-            <div style="font-size:13px;line-height:19px;color:#344054;margin-top:10px;">
-              <b>Було:</b> {esc(ch.get("old_value") or "—")}<br>
-              <b>Стало:</b> {esc(ch.get("new_value") or "—")}
-            </div>
-            {f'<div style="font-size:13px;line-height:19px;color:#344054;margin-top:10px;">{esc(ch.get("details"))}</div>' if ch.get("details") else ''}
-          </td></tr>
+          <tr>
+            <td style="padding:16px 18px;font-family:Arial,Helvetica,sans-serif;">
+
+              <div style="margin-bottom:10px;">
+                <span style="display:inline-block;background:{bg};color:{c};font-size:11px;line-height:15px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 9px;border-radius:999px;">
+                  {esc(label(sev))} · {esc(change_label(ch.get("change_type", "")))}
+                </span>
+              </div>
+
+              <div style="font-size:17px;line-height:23px;font-weight:800;color:#172033;">
+                {esc(ch.get("name") or ch.get("watch_name") or "Без назви")}
+              </div>
+
+              <div style="font-size:12px;line-height:18px;color:#667085;margin-top:3px;">
+                ЄДРПОУ: {esc(ch.get("edrpou"))} · {esc(ch.get("opf") or "—")}
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;border-top:1px solid #e5e7eb;">
+                {info_row("Було", ch.get("old_value") or "—")}
+                {info_row("Стало", ch.get("new_value") or "—")}
+                {info_row("Поточний стан", ch.get("stan") or ch.get("new_value") or "—")}
+                {details_block}
+              </table>
+
+              {technical_block}
+
+            </td>
+          </tr>
         </table>
         """
 
-    if not cards:
-        cards = """
+    grouped = {
+        "critical": [x for x in changes if x.get("severity") == "critical"],
+        "medium": [x for x in changes if x.get("severity") == "medium"],
+        "low": [x for x in changes if x.get("severity") == "low"],
+    }
+
+    sections = ""
+
+    for severity in ["critical", "medium", "low"]:
+        items = grouped[severity]
+        if not items:
+            continue
+
+        sections += f"""
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:24px;font-weight:800;color:#172033;margin:22px 0 12px;">
+          {esc(section_title(severity))}
+        </div>
+        """
+
+        for ch in items[:30]:
+            sections += render_card(ch)
+
+        if len(items) > 30:
+            sections += f"""
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:19px;color:#667085;margin:4px 0 16px;">
+              Показано 30 з {len(items)}. Повний перелік — у dashboard.
+            </div>
+            """
+
+    if not sections:
+        sections = """
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;margin:16px 0;">
-          <tr><td style="padding:16px;font-family:Arial,Helvetica,sans-serif;color:#344054;">Змін за поточний прогін не виявлено.</td></tr>
+          <tr>
+            <td style="padding:16px;font-family:Arial,Helvetica,sans-serif;color:#344054;font-size:14px;line-height:20px;">
+              За поточний прогін змін не виявлено.
+            </td>
+          </tr>
         </table>
         """
 
-    button = ""
-    if dashboard_url:
-        button = f"""
-        <table cellpadding="0" cellspacing="0" style="margin-top:18px;">
-          <tr><td bgcolor="#175cd3" style="border-radius:12px;">
-            <a href="{esc(dashboard_url)}" style="display:inline-block;padding:12px 18px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:700;">Переглянути dashboard</a>
-          </td></tr>
-        </table>
-        """
+    source_text = source.get("last_modified") or source.get("etag") or "оновлення джерела перевірено"
+
+    total = int(summary.get("total", 0) or 0)
+    summary_line = (
+        f"Виявлено {total} змін(у) за поточний прогін."
+        if total
+        else "За поточний прогін змін не виявлено."
+    )
 
     return f"""
 <!doctype html>
@@ -904,30 +1063,54 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
 <body style="margin:0;background:#f5f7fb;padding:24px 0;">
   <center>
     <table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:680px;">
-      <tr><td style="padding:0 16px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;">
-          <tr><td style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
-            <div style="font-size:26px;font-weight:800;color:#172033;">Моніторинг ЄДРПОУ</div>
-            <div style="font-size:14px;color:#667085;margin-top:6px;">Звіт про зміни · {esc(doc.get("generated_at"))}</div>
-          </td></tr>
-        </table>
+      <tr>
+        <td style="padding:0 16px;">
 
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0;">
-          <tr>
-            <td style="padding:6px;"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;"><b style="font-size:24px;color:#b42318;">{summary.get("critical", 0)}</b><br><span style="font-size:12px;color:#667085;">Критичні</span></div></td>
-            <td style="padding:6px;"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;"><b style="font-size:24px;color:#b54708;">{summary.get("medium", 0)}</b><br><span style="font-size:12px;color:#667085;">Середні</span></div></td>
-            <td style="padding:6px;"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;"><b style="font-size:24px;color:#175cd3;">{summary.get("low", 0)}</b><br><span style="font-size:12px;color:#667085;">Низькі</span></div></td>
-            <td style="padding:6px;"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;"><b style="font-size:24px;color:#172033;">{summary.get("total", 0)}</b><br><span style="font-size:12px;color:#667085;">Усього</span></div></td>
-          </tr>
-        </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;">
+            <tr>
+              <td style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
+                <div style="font-size:12px;line-height:16px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:#667085;">
+                  Моніторинг ЄДРПОУ
+                </div>
 
-        {cards}
-        {button}
+                <div style="font-size:26px;line-height:32px;font-weight:800;color:#172033;margin-top:8px;">
+                  Звіт про зміни
+                </div>
 
-        <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#667085;margin-top:22px;">
-          Джерело даних: відкриті дані ЄДР з порталу data.gov.ua. Лист є інформаційним повідомленням і не замінює офіційний витяг з ЄДР.
-        </div>
-      </td></tr>
+                <div style="font-size:14px;line-height:20px;color:#344054;margin-top:8px;">
+                  {esc(summary_line)}
+                </div>
+
+                <div style="font-size:12px;line-height:18px;color:#98a2b3;margin-top:8px;">
+                  {esc(generated_at)}<br>
+                  Джерело: {esc(source_text)}
+                </div>
+
+                {dashboard_button()}
+              </td>
+            </tr>
+          </table>
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0;">
+            <tr>
+              {kpi_cell("Критичні зміни", summary.get("critical", 0), "#b42318", "#fffafa")}
+              {kpi_cell("Потребують перевірки", summary.get("medium", 0), "#b54708", "#fffdf5")}
+              {kpi_cell("Інші", summary.get("low", 0), "#175cd3", "#fbfdff")}
+              {kpi_cell("Усього", summary.get("total", 0), "#172033", "#ffffff")}
+            </tr>
+          </table>
+
+          {sections}
+
+          {dashboard_button()}
+
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#667085;margin-top:22px;">
+            Це автоматичний звіт про зміни у поточному snapshot ЄДР. Джерело даних: відкриті дані ЄДР з порталу data.gov.ua.
+            Повні дані та контекст записів доступні у dashboard.
+          </div>
+
+        </td>
+      </tr>
     </table>
   </center>
 </body>
@@ -936,23 +1119,36 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
 
 
 def build_plain(doc: dict[str, Any], dashboard_url: str) -> str:
-    lines = ["Моніторинг ЄДРПОУ", f"Звіт: {doc.get('generated_at', '')}", ""]
+    lines = [
+        "Моніторинг ЄДРПОУ",
+        f"Звіт про зміни · {doc.get('generated_at', '')}",
+        "",
+    ]
+
     s = doc.get("summary", {})
     lines += [
         f"Критичні: {s.get('critical', 0)}",
-        f"Середні: {s.get('medium', 0)}",
-        f"Низькі: {s.get('low', 0)}",
+        f"Потребують перевірки: {s.get('medium', 0)}",
+        f"Інші: {s.get('low', 0)}",
         f"Усього: {s.get('total', 0)}",
         "",
     ]
 
-    for ch in doc.get("changes", [])[:60]:
-        lines.append(f"- [{ch.get('severity')}] {ch.get('edrpou')} {ch.get('name') or ch.get('watch_name')}")
-        lines.append(f"  RECORD: {ch.get('record') or '—'}")
-        lines.append(f"  {ch.get('change_type')}: {ch.get('old_value') or '—'} → {ch.get('new_value') or '—'}")
-        if ch.get("details"):
-            lines.append(f"  {ch.get('details')}")
-        lines.append("")
+    changes = doc.get("changes", [])
+
+    if not changes:
+        lines.append("За поточний прогін змін не виявлено.")
+    else:
+        for ch in changes[:60]:
+            lines.append(f"- [{ch.get('severity')}] {ch.get('edrpou')} {ch.get('name') or ch.get('watch_name')}")
+            lines.append(f"  Тип: {ch.get('change_type')}")
+            if ch.get("record"):
+                lines.append(f"  RECORD: {ch.get('record')}")
+            lines.append(f"  Було: {ch.get('old_value') or '—'}")
+            lines.append(f"  Стало: {ch.get('new_value') or '—'}")
+            if ch.get("details"):
+                lines.append(f"  Деталі: {normalize_ws(ch.get('details'))[:700]}")
+            lines.append("")
 
     if dashboard_url:
         lines.append(f"Dashboard: {dashboard_url}")
@@ -985,15 +1181,23 @@ def send_email(doc: dict[str, Any]) -> None:
         return
 
     s = doc.get("summary", {})
-    subject = f"Моніторинг ЄДРПОУ: критичні {s.get('critical', 0)}, середні {s.get('medium', 0)}, усього {s.get('total', 0)}"
+
+    subject = (
+        "Моніторинг ЄДРПОУ: зміни; "
+        f"критичні {s.get('critical', 0)}, "
+        f"усього {s.get('total', 0)}"
+    )
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = str(Header(subject, "utf-8"))
     msg["From"] = format_from(email_from)
     msg["To"] = ", ".join(email_to)
 
-    msg.attach(MIMEText(build_plain(doc, dashboard_url), "plain", "utf-8"))
-    msg.attach(MIMEText(build_email_html(doc, dashboard_url), "html", "utf-8"))
+    plain_body = build_plain(doc, dashboard_url)
+    html_body = build_email_html(doc, dashboard_url)
+
+    msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     with smtplib.SMTP(smtp_host, smtp_port, timeout=60) as server:
         server.starttls()
