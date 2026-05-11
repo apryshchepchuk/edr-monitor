@@ -385,8 +385,10 @@ def clear_element(elem: etree._Element) -> None:
 
 def extract_company(subject: etree._Element, watch_item: dict[str, Any]) -> dict[str, Any]:
     return {
+        "record": child_text(subject, "RECORD"),
         "edrpou": normalize_code(child_text(subject, "EDRPOU")),
         "watch_name": watch_item.get("name", ""),
+        "watch_record": normalize_ws(watch_item.get("record", "")),
         "tags": watch_item.get("tags", []),
         "notes": watch_item.get("notes", ""),
         "watch_severity": watch_item.get("severity", "normal"),
@@ -409,17 +411,218 @@ def extract_company(subject: etree._Element, watch_item: dict[str, Any]) -> dict
     }
 
 
+def extract_dates_from_text(value: Any) -> list[datetime]:
+    text = str(value or "")
+    dates: list[datetime] = []
+
+    for match in re.finditer(r"\b(\d{2})\.(\d{2})\.(\d{4})\b", text):
+        day, month, year = match.groups()
+        try:
+            dates.append(datetime(int(year), int(month), int(day)))
+        except ValueError:
+            pass
+
+    return dates
+
+
+def latest_company_date(company: dict[str, Any]) -> datetime:
+    fields = [
+        "registration_info",
+        "termination_started_info",
+        "terminated_info",
+        "termination_cancel_info",
+        "bankruptcy_readjustment_info",
+    ]
+
+    dates: list[datetime] = []
+
+    for field in fields:
+        dates.extend(extract_dates_from_text(company.get(field, "")))
+
+    return max(dates) if dates else datetime.min
+
+
+def status_group(company: dict[str, Any]) -> str:
+    stan = str(company.get("stan") or "").lower()
+
+    if company.get("found") is False:
+        return "not_found"
+
+    if "в стані припинення" in stan:
+        return "termination"
+
+    if "банкрут" in stan:
+        return "bankruptcy"
+
+    if "зареєстровано" in stan:
+        return "registered"
+
+    if "припинено" in stan:
+        return "terminated"
+
+    return "other"
+
+
+def state_rank(company: dict[str, Any]) -> int:
+    """
+    Важливо:
+    - "припинено" має бути нижче будь-якого неприпиненого стану;
+    - "зареєстровано" має перемагати історичні припинені записи;
+    - "в стані припинення" і банкрутство — найризиковіші актуальні стани.
+    """
+    group = status_group(company)
+
+    ranks = {
+        "termination": 600,
+        "bankruptcy": 550,
+        "registered": 500,
+        "other": 300,
+        "terminated": 100,
+        "not_found": 0,
+    }
+
+    return ranks.get(group, 0)
+
+
+def soft_name(value: Any) -> str:
+    value = normalize_ws(value).lower()
+    return re.sub(r"[^а-яіїєґa-z0-9]+", "", value)
+
+
+def name_match_rank(company: dict[str, Any], watch_item: dict[str, Any]) -> int:
+    watch_name = normalize_ws(watch_item.get("name", "")).lower()
+    official_name = normalize_ws(company.get("name", "")).lower()
+    short_name = normalize_ws(company.get("short_name", "")).lower()
+
+    if not watch_name:
+        return 0
+
+    if watch_name == official_name or watch_name == short_name:
+        return 100
+
+    if watch_name in official_name or watch_name in short_name:
+        return 80
+
+    sw = soft_name(watch_name)
+    so = soft_name(official_name)
+    ss = soft_name(short_name)
+
+    if sw and (sw in so or sw in ss or so in sw or ss in sw):
+        return 60
+
+    return 0
+
+
+def company_score(company: dict[str, Any], watch_item: dict[str, Any]) -> tuple[int, int, datetime]:
+    """
+    Порядок:
+    1. стан;
+    2. схожість назви з watchlist;
+    3. дата реєстраційної/статусної інформації.
+    """
+    return (
+        state_rank(company),
+        name_match_rank(company, watch_item),
+        latest_company_date(company),
+    )
+
+
+def selection_reason_for(
+    selected: dict[str, Any],
+    candidates: list[dict[str, Any]],
+    watch_item: dict[str, Any],
+) -> str:
+    watch_record = normalize_ws(watch_item.get("record", ""))
+    if watch_record and normalize_ws(selected.get("record", "")) == watch_record:
+        return "selected_by_watchlist_record"
+
+    if len(candidates) == 1:
+        return "single_record"
+
+    groups = {status_group(item) for item in candidates}
+    selected_group = status_group(selected)
+
+    if "terminated" in groups and selected_group != "terminated":
+        return "selected_non_terminated_record"
+
+    if groups == {"terminated"}:
+        return "all_candidates_terminated_selected_best_by_score"
+
+    if selected_group in {"termination", "bankruptcy"}:
+        return "selected_risk_status_record"
+
+    return "selected_by_state_name_date_score"
+
+
+def candidate_summary(item: dict[str, Any], watch_item: dict[str, Any]) -> dict[str, Any]:
+    score = company_score(item, watch_item)
+    score_date = score[2].isoformat() if score[2] != datetime.min else ""
+
+    return {
+        "record": item.get("record", ""),
+        "edrpou": item.get("edrpou", ""),
+        "name": item.get("name", ""),
+        "short_name": item.get("short_name", ""),
+        "opf": item.get("opf", ""),
+        "stan": item.get("stan", ""),
+        "status_group": status_group(item),
+        "registration_info": item.get("registration_info", ""),
+        "termination_started_info": item.get("termination_started_info", ""),
+        "terminated_info": item.get("terminated_info", ""),
+        "termination_cancel_info": item.get("termination_cancel_info", ""),
+        "bankruptcy_readjustment_info": item.get("bankruptcy_readjustment_info", ""),
+        "score": {
+            "state_rank": score[0],
+            "name_match_rank": score[1],
+            "latest_date": score_date,
+        },
+    }
+
+
+def select_best_company_record(
+    code: str,
+    candidates: list[dict[str, Any]],
+    watch_item: dict[str, Any],
+) -> dict[str, Any]:
+    watch_record = normalize_ws(watch_item.get("record", ""))
+
+    selected: dict[str, Any] | None = None
+
+    if watch_record:
+        exact_matches = [
+            item
+            for item in candidates
+            if normalize_ws(item.get("record", "")) == watch_record
+        ]
+        if exact_matches:
+            selected = exact_matches[0]
+
+    if selected is None:
+        selected = max(candidates, key=lambda item: company_score(item, watch_item))
+
+    selected["candidate_count"] = len(candidates)
+    selected["selected_from_duplicate_records"] = len(candidates) > 1
+    selected["selection_reason"] = selection_reason_for(selected, candidates, watch_item)
+
+    if len(candidates) > 1:
+        selected["duplicate_records_summary"] = [
+            candidate_summary(item, watch_item)
+            for item in candidates
+        ]
+    else:
+        selected["duplicate_records_summary"] = []
+
+    return selected
+
+
 def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     xml_name = first_xml_name(zip_path)
-    remaining = set(watch.keys())
-    found = {}
+    candidates_by_code: dict[str, list[dict[str, Any]]] = {}
 
-    print(f"Parsing {xml_name}; watchlist: {len(remaining)} codes")
+    print(f"Parsing {xml_name}; watchlist: {len(watch)} codes")
 
     with zipfile.ZipFile(zip_path) as zf:
         with zf.open(xml_name) as xml_file:
-            # Важливо: парсимо тільки завершені SUBJECT.
-            # Не очищаємо дочірні EDRPOU/NAME/STAN до того, як прочитаємо весь SUBJECT.
             context = etree.iterparse(
                 xml_file,
                 events=("end",),
@@ -434,31 +637,59 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
                 processed += 1
 
                 if processed % 100000 == 0:
-                    print(f"Processed: {processed:,}; found: {len(found)}/{len(watch)}")
+                    print(
+                        f"Processed: {processed:,}; "
+                        f"matched codes: {len(candidates_by_code)}/{len(watch)}"
+                    )
 
                 code = normalize_code(child_text(elem, "EDRPOU"))
 
-                if code in remaining:
-                    found[code] = extract_company(elem, watch[code])
-                    remaining.remove(code)
+                if code in watch:
+                    candidate = extract_company(elem, watch[code])
+                    candidates_by_code.setdefault(code, []).append(candidate)
 
                     print(
-                        f"Found {code}: "
-                        f"{found[code].get('name') or watch[code].get('name')}"
+                        f"Candidate {code}: "
+                        f"{candidate.get('name') or watch[code].get('name')} "
+                        f"[{candidate.get('stan')}] "
+                        f"RECORD={candidate.get('record')}"
                     )
-
-                    if not remaining:
-                        clear_element(elem)
-                        print("All watchlist codes found. Stop parser.")
-                        break
 
                 clear_element(elem)
 
-    for code in sorted(remaining):
+    found: dict[str, dict[str, Any]] = {}
+
+    for code, candidates in sorted(candidates_by_code.items()):
+        selected = select_best_company_record(code, candidates, watch[code])
+        found[code] = selected
+
+        if len(candidates) > 1:
+            print(f"Duplicate EDRPOU records detected: {code}")
+            for item in candidates:
+                print(
+                    "  - "
+                    f"RECORD={item.get('record')} | "
+                    f"{item.get('name')} | "
+                    f"STAN={item.get('stan')} | "
+                    f"group={status_group(item)} | "
+                    f"score={company_score(item, watch[code])}"
+                )
+            print(
+                f"  SELECTED: RECORD={selected.get('record')} | "
+                f"{selected.get('name')} "
+                f"[{selected.get('stan')}] | "
+                f"reason={selected.get('selection_reason')}"
+            )
+
+    missing = set(watch.keys()) - set(found.keys())
+
+    for code in sorted(missing):
         item = watch[code]
         found[code] = {
+            "record": "",
             "edrpou": code,
             "watch_name": item.get("name", ""),
+            "watch_record": normalize_ws(item.get("record", "")),
             "tags": item.get("tags", []),
             "notes": item.get("notes", ""),
             "watch_severity": item.get("severity", "normal"),
@@ -475,6 +706,10 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
             "signers": [],
             "founders": [],
             "beneficiaries": [],
+            "candidate_count": 0,
+            "selected_from_duplicate_records": False,
+            "selection_reason": "not_found",
+            "duplicate_records_summary": [],
         }
 
     return found
@@ -509,6 +744,7 @@ def make_change(
     return {
         "severity": severity,
         "edrpou": code,
+        "record": company.get("record", ""),
         "name": company.get("name") or company.get("watch_name") or "",
         "watch_name": company.get("watch_name") or "",
         "tags": company.get("tags", []),
@@ -632,7 +868,7 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-left:6px solid {c};border-radius:14px;margin:0 0 12px;">
           <tr><td style="padding:16px;font-family:Arial,Helvetica,sans-serif;">
             <div style="font-size:16px;font-weight:800;color:#172033;">{esc(ch.get("name") or ch.get("watch_name"))}</div>
-            <div style="font-size:12px;color:#667085;margin-top:3px;">ЄДРПОУ: {esc(ch.get("edrpou"))} · {esc(ch.get("change_type"))}</div>
+            <div style="font-size:12px;color:#667085;margin-top:3px;">ЄДРПОУ: {esc(ch.get("edrpou"))} · RECORD: {esc(ch.get("record"))} · {esc(ch.get("change_type"))}</div>
             <div style="margin-top:8px;">
               <span style="display:inline-block;background:#f5f7fb;color:{c};font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;">{esc(label(ch.get("severity")))}</span>
             </div>
@@ -712,6 +948,7 @@ def build_plain(doc: dict[str, Any], dashboard_url: str) -> str:
 
     for ch in doc.get("changes", [])[:60]:
         lines.append(f"- [{ch.get('severity')}] {ch.get('edrpou')} {ch.get('name') or ch.get('watch_name')}")
+        lines.append(f"  RECORD: {ch.get('record') or '—'}")
         lines.append(f"  {ch.get('change_type')}: {ch.get('old_value') or '—'} → {ch.get('new_value') or '—'}")
         if ch.get("details"):
             lines.append(f"  {ch.get('details')}")
@@ -775,6 +1012,9 @@ def build_current(companies: dict[str, dict[str, Any]], source: dict[str, Any]) 
             "watchlist_enabled": len(items),
             "found": sum(1 for x in items if x.get("found")),
             "not_found": sum(1 for x in items if not x.get("found")),
+            "selected_from_duplicate_records": sum(
+                1 for x in items if x.get("selected_from_duplicate_records")
+            ),
         },
         "companies": items,
     }
