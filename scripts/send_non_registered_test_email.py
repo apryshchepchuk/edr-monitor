@@ -119,6 +119,94 @@ def label_for_severity(severity: str) -> str:
 def esc(value: Any) -> str:
     return html.escape(str(value or ""))
 
+def truncate(value: Any, limit: int = 360) -> str:
+    text = normalize_ws(value)
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "…"
+
+
+def first_date_from_text(value: Any) -> str:
+    text = str(value or "")
+    match = re.search(r"\b\d{2}\.\d{2}\.\d{4}\b", text)
+    return match.group(0) if match else ""
+
+
+def first_non_empty(*values: Any) -> str:
+    for value in values:
+        text = normalize_ws(value)
+        if text:
+            return text
+    return ""
+
+
+def relevant_status_block(company: dict[str, Any], group: str) -> str:
+    if group == "termination":
+        return first_non_empty(
+            company.get("termination_started_info"),
+            company.get("stan"),
+        )
+
+    if group == "terminated":
+        return first_non_empty(
+            company.get("terminated_info"),
+            company.get("stan"),
+        )
+
+    if group == "bankruptcy":
+        return first_non_empty(
+            company.get("bankruptcy_readjustment_info"),
+            company.get("stan"),
+        )
+
+    return first_non_empty(
+        company.get("termination_started_info"),
+        company.get("terminated_info"),
+        company.get("bankruptcy_readjustment_info"),
+        company.get("registration_info"),
+        company.get("stan"),
+    )
+
+
+def relevant_date(company: dict[str, Any], group: str) -> str:
+    block = relevant_status_block(company, group)
+    date = first_date_from_text(block)
+    if date:
+        return date
+
+    return first_non_empty(
+        first_date_from_text(company.get("registration_info")),
+        first_date_from_text(company.get("termination_started_info")),
+        first_date_from_text(company.get("terminated_info")),
+        first_date_from_text(company.get("bankruptcy_readjustment_info")),
+    )
+
+
+def short_signers(company: dict[str, Any], limit: int = 2) -> tuple[list[str], int]:
+    signers = company.get("signers") or []
+    if not isinstance(signers, list):
+        return [], 0
+
+    clean = [normalize_ws(x) for x in signers if normalize_ws(x)]
+    return clean[:limit], max(0, len(clean) - limit)
+
+
+def risk_title(group: str) -> str:
+    return {
+        "termination": "В стані припинення",
+        "terminated": "Припинено",
+        "bankruptcy": "Банкрутство / санація",
+        "not_found": "Не знайдено у джерелі",
+        "other": "Інший стан",
+    }.get(group, "Стан відмінний від «зареєстровано»")
+
+
+def section_title(severity: str) -> str:
+    return {
+        "critical": "Критичні стани",
+        "medium": "Потребують перевірки",
+        "low": "Інші стани",
+    }.get(severity, "Інші стани")
 
 def load_companies_doc() -> dict[str, Any]:
     current_doc = load_json(CURRENT, {})
@@ -150,51 +238,37 @@ def build_test_items(companies: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
 
         severity = severity_for_state(group)
+        status_block = relevant_status_block(company, group)
+        selected_signers, hidden_signers_count = short_signers(company)
 
-        details: list[str] = [
-            f"Група стану: {state_label(group)}",
-        ]
-
-        if company.get("record"):
-            details.append(f"RECORD: {company.get('record')}")
+        technical_notes: list[str] = []
 
         if company.get("selected_from_duplicate_records"):
-            details.append(
+            technical_notes.append(
                 f"Запис обрано з {company.get('candidate_count')} кандидатів. "
                 f"Причина вибору: {company.get('selection_reason') or '—'}"
             )
 
-        if company.get("registration_info"):
-            details.append(f"Реєстрація: {company.get('registration_info')}")
-
-        if company.get("termination_started_info"):
-            details.append(f"Початок припинення: {company.get('termination_started_info')}")
-
-        if company.get("terminated_info"):
-            details.append(f"Припинення: {company.get('terminated_info')}")
-
-        if company.get("termination_cancel_info"):
-            details.append(f"Скасування припинення: {company.get('termination_cancel_info')}")
-
-        if company.get("bankruptcy_readjustment_info"):
-            details.append(f"Банкрутство / санація: {company.get('bankruptcy_readjustment_info')}")
-
-        signers = company.get("signers") or []
-        if signers:
-            details.append(f"Керівник/підписанти: {'; '.join(signers[:5])}")
+        if company.get("record"):
+            technical_notes.append(f"RECORD: {company.get('record')}")
 
         items.append(
             {
                 "severity": severity,
                 "state_group": group,
                 "state_label": state_label(group),
+                "risk_title": risk_title(group),
                 "edrpou": normalize_code(company.get("edrpou")),
                 "record": company.get("record", ""),
                 "name": company.get("name") or company.get("watch_name") or "Без назви",
                 "watch_name": company.get("watch_name", ""),
                 "opf": company.get("opf", ""),
                 "stan": company.get("stan") or "—",
-                "details": "\n".join(details),
+                "status_date": relevant_date(company, group) or "—",
+                "action_summary": truncate(status_block, 520) or "—",
+                "signers_short": selected_signers,
+                "hidden_signers_count": hidden_signers_count,
+                "technical_notes": technical_notes,
             }
         )
 
@@ -225,70 +299,149 @@ def build_email_html(
     source: dict[str, Any],
     dashboard_url: str,
 ) -> str:
-    cards = ""
+    source_text = source.get("last_modified") or source.get("etag") or "поточний snapshot"
 
-    for item in items:
-        color = color_for_severity(item["severity"])
+    summary_line = (
+        f"Виявлено {summary.get('total', 0)} контрагент(ів) "
+        "зі станом, відмінним від «зареєстровано»."
+    )
 
-        cards += f"""
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-left:6px solid {color};border-radius:14px;margin:0 0 12px;">
-          <tr>
-            <td style="padding:16px;font-family:Arial,Helvetica,sans-serif;">
-              <div style="font-size:16px;font-weight:800;color:#172033;">
-                {esc(item["name"])}
-              </div>
-
-              <div style="font-size:12px;color:#667085;margin-top:3px;">
-                ЄДРПОУ: {esc(item["edrpou"])} · RECORD: {esc(item["record"] or "—")} · {esc(item["opf"])}
-              </div>
-
-              <div style="margin-top:8px;">
-                <span style="display:inline-block;background:#f5f7fb;color:{color};font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;">
-                  {esc(label_for_severity(item["severity"]))}
-                </span>
-                <span style="display:inline-block;background:#f2f4f7;color:#344054;font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;">
-                  {esc(item["state_label"])}
-                </span>
-              </div>
-
-              <div style="font-size:13px;line-height:19px;color:#344054;margin-top:10px;">
-                <b>Поточний стан:</b> {esc(item["stan"])}
-              </div>
-
-              <div style="font-size:13px;line-height:19px;color:#344054;margin-top:10px;white-space:pre-wrap;">
-                {esc(item["details"])}
-              </div>
-            </td>
-          </tr>
-        </table>
+    def kpi_cell(label: str, value: int, color: str, bg: str = "#ffffff") -> str:
+        return f"""
+        <td style="padding:6px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:{bg};border:1px solid #e5e7eb;border-radius:14px;">
+            <tr>
+              <td style="padding:14px;font-family:Arial,Helvetica,sans-serif;">
+                <div style="font-size:26px;line-height:30px;font-weight:800;color:{color};">{value}</div>
+                <div style="font-size:12px;line-height:17px;color:#667085;">{esc(label)}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
         """
 
-    if not cards:
-        cards = """
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;margin:16px 0;">
-          <tr>
-            <td style="padding:16px;font-family:Arial,Helvetica,sans-serif;color:#344054;">
-              У поточному snapshot немає контрагентів зі станом, відмінним від «зареєстровано».
-            </td>
-          </tr>
-        </table>
-        """
+    def dashboard_button() -> str:
+        if not dashboard_url:
+            return ""
 
-    button = ""
-    if dashboard_url:
-        button = f"""
-        <table cellpadding="0" cellspacing="0" style="margin-top:18px;">
+        return f"""
+        <table cellpadding="0" cellspacing="0" style="margin:18px 0 4px;">
           <tr>
-            <td bgcolor="#175cd3" style="border-radius:12px;">
-              <a href="{esc(dashboard_url)}" style="display:inline-block;padding:12px 18px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:700;">
-                Переглянути dashboard
+            <td bgcolor="#172033" style="border-radius:12px;">
+              <a href="{esc(dashboard_url)}" style="display:inline-block;padding:13px 18px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:700;font-size:14px;">
+                Переглянути повні дані в dashboard
               </a>
             </td>
           </tr>
         </table>
         """
 
-    source_text = source.get("last_modified") or source.get("etag") or "поточний snapshot"
+    def info_row(label: str, value: Any) -> str:
+        return f"""
+        <tr>
+          <td width="150" style="padding:6px 8px 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#667085;font-weight:700;vertical-align:top;">
+            {esc(label)}
+          </td>
+          <td style="padding:6px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#344054;vertical-align:top;">
+            {esc(value or "—")}
+          </td>
+        </tr>
+        """
+
+    def render_signers(item: dict[str, Any]) -> str:
+        signers = item.get("signers_short") or []
+        hidden = int(item.get("hidden_signers_count") or 0)
+
+        if not signers:
+            return "—"
+
+        text = "; ".join(signers)
+        if hidden > 0:
+            text += f"; + ще {hidden} у dashboard"
+
+        return text
+
+    def render_card(item: dict[str, Any]) -> str:
+        color = color_for_severity(item["severity"])
+        light_bg = {
+            "critical": "#fef3f2",
+            "medium": "#fffaeb",
+            "low": "#eff8ff",
+        }.get(item["severity"], "#f8fafc")
+
+        technical = ""
+        if item.get("technical_notes"):
+            technical = f"""
+            <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:17px;color:#667085;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+              {esc(" · ".join(item["technical_notes"]))}
+            </div>
+            """
+
+        return f"""
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-left:6px solid {color};border-radius:14px;margin:0 0 12px;">
+          <tr>
+            <td style="padding:16px 18px;font-family:Arial,Helvetica,sans-serif;">
+
+              <div style="margin-bottom:10px;">
+                <span style="display:inline-block;background:{light_bg};color:{color};font-size:11px;line-height:15px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:5px 9px;border-radius:999px;">
+                  {esc(label_for_severity(item["severity"]))} · {esc(item["risk_title"])}
+                </span>
+              </div>
+
+              <div style="font-size:17px;line-height:23px;font-weight:800;color:#172033;">
+                {esc(item["name"])}
+              </div>
+
+              <div style="font-size:12px;line-height:18px;color:#667085;margin-top:3px;">
+                ЄДРПОУ: {esc(item["edrpou"])} · {esc(item["opf"] or "—")}
+              </div>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;border-top:1px solid #e5e7eb;">
+                {info_row("Поточний стан", item.get("stan"))}
+                {info_row("Дата/орієнтир", item.get("status_date"))}
+                {info_row("Суть запису", item.get("action_summary"))}
+                {info_row("Керівник/підписанти", render_signers(item))}
+              </table>
+
+              {technical}
+
+            </td>
+          </tr>
+        </table>
+        """
+
+    grouped = {
+        "critical": [x for x in items if x.get("severity") == "critical"],
+        "medium": [x for x in items if x.get("severity") == "medium"],
+        "low": [x for x in items if x.get("severity") == "low"],
+    }
+
+    sections = ""
+
+    for severity in ["critical", "medium", "low"]:
+        group_items = grouped[severity]
+        if not group_items:
+            continue
+
+        sections += f"""
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:24px;font-weight:800;color:#172033;margin:22px 0 12px;">
+          {esc(section_title(severity))}
+        </div>
+        """
+
+        for item in group_items:
+            sections += render_card(item)
+
+    if not sections:
+        sections = """
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;margin:16px 0;">
+          <tr>
+            <td style="padding:16px;font-family:Arial,Helvetica,sans-serif;color:#344054;font-size:14px;line-height:20px;">
+              У поточному snapshot немає контрагентів зі станом, відмінним від «зареєстровано».
+            </td>
+          </tr>
+        </table>
+        """
 
     return f"""
 <!doctype html>
@@ -298,59 +451,50 @@ def build_email_html(
     <table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:680px;">
       <tr>
         <td style="padding:0 16px;">
+
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;">
             <tr>
               <td style="padding:24px;font-family:Arial,Helvetica,sans-serif;">
-                <div style="font-size:26px;font-weight:800;color:#172033;">
+                <div style="font-size:12px;line-height:16px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:#667085;">
                   Моніторинг ЄДРПОУ
                 </div>
-                <div style="font-size:14px;color:#667085;margin-top:6px;">
-                  Тестова розсилка: стани відмінні від «зареєстровано» · {esc(generated_at)}
+
+                <div style="font-size:26px;line-height:32px;font-weight:800;color:#172033;margin-top:8px;">
+                  Звіт про ризикові стани
                 </div>
-                <div style="font-size:12px;color:#98a2b3;margin-top:6px;">
+
+                <div style="font-size:14px;line-height:20px;color:#344054;margin-top:8px;">
+                  {esc(summary_line)}
+                </div>
+
+                <div style="font-size:12px;line-height:18px;color:#98a2b3;margin-top:8px;">
+                  Тестова розсилка · {esc(generated_at)}<br>
                   Джерело: {esc(source_text)}
                 </div>
+
+                {dashboard_button()}
               </td>
             </tr>
           </table>
 
           <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0;">
             <tr>
-              <td style="padding:6px;">
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;">
-                  <b style="font-size:24px;color:#b42318;">{summary.get("critical", 0)}</b><br>
-                  <span style="font-size:12px;color:#667085;">Критичні</span>
-                </div>
-              </td>
-              <td style="padding:6px;">
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;">
-                  <b style="font-size:24px;color:#b54708;">{summary.get("medium", 0)}</b><br>
-                  <span style="font-size:12px;color:#667085;">Середні</span>
-                </div>
-              </td>
-              <td style="padding:6px;">
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;">
-                  <b style="font-size:24px;color:#175cd3;">{summary.get("low", 0)}</b><br>
-                  <span style="font-size:12px;color:#667085;">Низькі</span>
-                </div>
-              </td>
-              <td style="padding:6px;">
-                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;font-family:Arial;">
-                  <b style="font-size:24px;color:#172033;">{summary.get("total", 0)}</b><br>
-                  <span style="font-size:12px;color:#667085;">Усього</span>
-                </div>
-              </td>
+              {kpi_cell("Критичні стани", summary.get("critical", 0), "#b42318", "#fffafa")}
+              {kpi_cell("Потребують перевірки", summary.get("medium", 0), "#b54708", "#fffdf5")}
+              {kpi_cell("Інші", summary.get("low", 0), "#175cd3", "#fbfdff")}
+              {kpi_cell("Усього", summary.get("total", 0), "#172033", "#ffffff")}
             </tr>
           </table>
 
-          {cards}
+          {sections}
 
-          {button}
+          {dashboard_button()}
 
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#667085;margin-top:22px;">
             Це тестова розсилка по поточному snapshot. Вона не є автоматичним alert про нові зміни.
             Джерело даних: відкриті дані ЄДР з порталу data.gov.ua.
           </div>
+
         </td>
       </tr>
     </table>
@@ -368,11 +512,13 @@ def build_plain(
 ) -> str:
     lines = [
         "Моніторинг ЄДРПОУ",
-        f"Тестова розсилка: стани відмінні від «зареєстровано» · {generated_at}",
+        f"Звіт про ризикові стани · {generated_at}",
+        "",
+        f"Виявлено {summary.get('total', 0)} контрагент(ів) зі станом, відмінним від «зареєстровано».",
         "",
         f"Критичні: {summary.get('critical', 0)}",
-        f"Середні: {summary.get('medium', 0)}",
-        f"Низькі: {summary.get('low', 0)}",
+        f"Потребують перевірки: {summary.get('medium', 0)}",
+        f"Інші: {summary.get('low', 0)}",
         f"Усього: {summary.get('total', 0)}",
         "",
     ]
@@ -382,10 +528,11 @@ def build_plain(
     else:
         for item in items:
             lines.append(f"- [{item['severity']}] {item['edrpou']} {item['name']}")
-            lines.append(f"  RECORD: {item.get('record') or '—'}")
             lines.append(f"  Стан: {item.get('stan') or '—'}")
-            if item.get("details"):
-                lines.append(f"  {item['details']}")
+            lines.append(f"  Дата/орієнтир: {item.get('status_date') or '—'}")
+            lines.append(f"  Суть запису: {item.get('action_summary') or '—'}")
+            if item.get("record"):
+                lines.append(f"  RECORD: {item.get('record')}")
             lines.append("")
 
     if dashboard_url:
@@ -414,12 +561,11 @@ def send_email(
             "SMTP_PASS, EMAIL_FROM, EMAIL_TO."
         )
 
-    subject = (
-        "Моніторинг ЄДРПОУ: тест станів; "
-        f"критичні {summary.get('critical', 0)}, "
-        f"середні {summary.get('medium', 0)}, "
-        f"усього {summary.get('total', 0)}"
-    )
+subject = (
+    "Моніторинг ЄДРПОУ: ризикові стани; "
+    f"критичні {summary.get('critical', 0)}, "
+    f"усього {summary.get('total', 0)}"
+)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = str(Header(subject, "utf-8"))
