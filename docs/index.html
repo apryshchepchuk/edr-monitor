@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Моніторинг ЄДРПОУ</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f5f7fb;
+      color: #172033;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 16px 48px;
+    }
+    .hero, .kpi, .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      box-shadow: 0 6px 18px rgba(16,24,40,.05);
+    }
+    .hero {
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .muted {
+      color: #667085;
+      font-size: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 16px 0;
+    }
+    .kpi {
+      padding: 18px;
+    }
+    .num {
+      font-size: 30px;
+      font-weight: 800;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    input, select {
+      padding: 12px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      font-size: 14px;
+    }
+    .card {
+      padding: 16px;
+      margin-bottom: 12px;
+      border-left: 6px solid #e5e7eb;
+    }
+    .critical { border-left-color: #b42318; }
+    .medium { border-left-color: #b54708; }
+    .low { border-left-color: #175cd3; }
+    .title {
+      font-weight: 800;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #3538cd;
+    }
+    .badge.critical { background: #fef3f2; color: #b42318; }
+    .badge.medium { background: #fffaeb; color: #b54708; }
+    .badge.low { background: #eff8ff; color: #175cd3; }
+    .details {
+      margin-top: 10px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      color: #344054;
+      font-size: 14px;
+    }
+    .footer {
+      margin-top: 28px;
+      font-size: 13px;
+      color: #667085;
+      line-height: 1.5;
+    }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .toolbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Моніторинг ЄДРПОУ</h1>
+      <div id="generated" class="muted">Завантаження...</div>
+      <div id="source" class="muted"></div>
+    </div>
+
+    <div class="grid">
+      <div class="kpi"><div id="critical" class="num">0</div><div class="muted">Критичні</div></div>
+      <div class="kpi"><div id="medium" class="num">0</div><div class="muted">Середні</div></div>
+      <div class="kpi"><div id="low" class="num">0</div><div class="muted">Низькі</div></div>
+      <div class="kpi"><div id="total" class="num">0</div><div class="muted">Усього</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input id="search" placeholder="Пошук за назвою, ЄДРПОУ, статусом...">
+      <select id="severity">
+        <option value="">Усі пріоритети</option>
+        <option value="critical">Критичні</option>
+        <option value="medium">Середні</option>
+        <option value="low">Низькі</option>
+      </select>
+    </div>
+
+    <h2>Останні зміни</h2>
+    <div id="changes"></div>
+
+    <h2>Контрагенти на моніторингу</h2>
+    <div id="companies"></div>
+
+    <div class="footer">
+      Джерело даних: відкриті дані Єдиного державного реєстру юридичних осіб, фізичних осіб-підприємців та громадських формувань з порталу data.gov.ua.
+      Dashboard є інформаційним інструментом і не замінює офіційний витяг з ЄДР.
+    </div>
+  </div>
+
+<script>
+let data = null;
+
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, s => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+  }[s]));
+}
+
+function sevLabel(s) {
+  return {critical:"Критично", medium:"Середньо", low:"Низько"}[s] || s || "—";
+}
+
+function render() {
+  const q = document.getElementById("search").value.toLowerCase().trim();
+  const sev = document.getElementById("severity").value;
+
+  const summary = data.summary || {};
+  document.getElementById("critical").textContent = summary.critical || 0;
+  document.getElementById("medium").textContent = summary.medium || 0;
+  document.getElementById("low").textContent = summary.low || 0;
+  document.getElementById("total").textContent = summary.total || 0;
+  document.getElementById("generated").textContent = data.generated_at ? "Оновлено: " + data.generated_at : "Дані ще не сформовані";
+  document.getElementById("source").textContent = data.source?.last_modified ? "Джерело: " + data.source.last_modified : "";
+
+  const changes = (data.changes || []).filter(x => {
+    const blob = JSON.stringify(x).toLowerCase();
+    return (!q || blob.includes(q)) && (!sev || x.severity === sev);
+  });
+
+  document.getElementById("changes").innerHTML = changes.length ? changes.map(x => `
+    <div class="card ${esc(x.severity)}">
+      <div class="title">${esc(x.name || x.watch_name || "Без назви")}</div>
+      <div class="muted">ЄДРПОУ: ${esc(x.edrpou)} · ${esc(x.change_type)}</div>
+      <div style="margin-top:8px"><span class="badge ${esc(x.severity)}">${esc(sevLabel(x.severity))}</span></div>
+      <div class="details"><b>Було:</b> ${esc(x.old_value || "—")}\n<b>Стало:</b> ${esc(x.new_value || "—")}${x.details ? "\n\n" + esc(x.details) : ""}</div>
+    </div>
+  `).join("") : `<div class="muted">Змін за останній прогін немає.</div>`;
+
+  const companies = (data.companies || []).filter(x => {
+    const blob = JSON.stringify(x).toLowerCase();
+    return !q || blob.includes(q);
+  });
+
+  document.getElementById("companies").innerHTML = companies.length ? companies.map(x => `
+    <div class="card">
+      <div class="title">${esc(x.name || x.watch_name || "Без назви")}</div>
+      <div class="muted">ЄДРПОУ: ${esc(x.edrpou)} · ${esc(x.opf || "")}</div>
+      <div class="details"><b>Стан:</b> ${esc(x.stan || "—")}${x.signers?.length ? "\n<b>Керівник/підписанти:</b> " + esc(x.signers.join("; ")) : ""}</div>
+    </div>
+  `).join("") : `<div class="muted">Немає записів.</div>`;
+}
+
+fetch("data/dashboard.json?v=" + Date.now())
+  .then(r => r.json())
+  .then(json => {
+    data = json;
+    render();
+  })
+  .catch(() => {
+    document.getElementById("generated").textContent = "Не вдалося завантажити dashboard.json";
+  });
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("severity").addEventListener("change", render);
+</script>
+</body>
+</html>
