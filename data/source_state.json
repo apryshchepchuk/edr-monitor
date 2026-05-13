@@ -4,7 +4,7 @@
   "etag": "\"6a02de76-17140558\"",
   "last_modified": "Tue, 12 May 2026 08:01:58 GMT",
   "content_length": "387188056",
-  "checked_at": "2026-05-13T11:14:04+03:00",
+  "checked_at": "2026-05-13T21:19:20+03:00",
   "method": "HEAD",
   "last_probe": {
     "url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
@@ -12,7 +12,7 @@
     "etag": "\"6a02de76-17140558\"",
     "last_modified": "Tue, 12 May 2026 08:01:58 GMT",
     "content_length": "387188056",
-    "checked_at": "2026-05-13T11:14:04+03:00",
+    "checked_at": "2026-05-13T21:19:20+03:00",
     "method": "HEAD"
   }
 }
