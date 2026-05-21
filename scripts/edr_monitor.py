@@ -272,35 +272,68 @@ def source_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
 def strip_html(value: str) -> str:
     return normalize_ws(re.sub(r"<[^>]+>", " ", value or ""))
 
+def fetch_text_streaming(url: str, max_bytes: int = 2_000_000) -> tuple[str, str]:
+    """
+    Читає HTML потоково і не чекає нескінченно закриття зʼєднання сервером.
+    Повертає: (text, final_url).
+    """
+    chunks: list[bytes] = []
+    total = 0
+
+    with requests.get(
+        url,
+        timeout=(20, 45),
+        allow_redirects=True,
+        headers=request_headers({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+        }),
+        stream=True,
+    ) as response:
+        response.raise_for_status()
+
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+
+            chunks.append(chunk)
+            total += len(chunk)
+
+            joined_tail = b"".join(chunks[-3:]).lower()
+
+            if b"</html>" in joined_tail:
+                break
+
+            if total >= max_bytes:
+                print(f"HTML streaming reached {max_bytes:,} bytes. Stop reading.")
+                break
+
+        encoding = response.encoding or "utf-8"
+        return b"".join(chunks).decode(encoding, errors="replace"), response.url
+    
 
 def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
     print(f"Discovering fallback ZIP from NAIS page: {page_url}")
 
-    response: requests.Response | None = None
+    text = ""
+    final_page_url = page_url
     last_exc: Exception | None = None
 
-    for attempt in range(1, 4):
+    for attempt in range(1, 5):
         try:
-            print(f"NAIS page fetch attempt {attempt}/3")
-
-            response = requests.get(
-                page_url,
-                timeout=(20, 180),
-                allow_redirects=True,
-                headers=request_headers(),
-            )
-            response.raise_for_status()
-            break
+            print(f"NAIS page streaming fetch attempt {attempt}/4")
+            text, final_page_url = fetch_text_streaming(page_url)
+            if text.strip():
+                break
 
         except requests.RequestException as exc:
             last_exc = exc
             print(f"NAIS page fetch attempt {attempt} failed: {exc}", file=sys.stderr)
-            time.sleep(min(30, attempt * 10))
+            time.sleep(min(20, attempt * 5))
 
-    if response is None:
-        raise RuntimeError(f"Could not fetch NAIS page after 3 attempts: {last_exc}")
+    if not text.strip():
+        raise RuntimeError(f"Could not fetch NAIS page after 4 attempts: {last_exc}")
 
-    text = response.text
     candidates: list[tuple[int, str, str]] = []
 
     for match in re.finditer(
@@ -310,7 +343,7 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
     ):
         href = match.group(1)
         label = strip_html(match.group(2))
-        full_url = urljoin(response.url, href)
+        full_url = urljoin(final_page_url, href)
 
         haystack = f"{label} {full_url}".lower()
 
@@ -339,7 +372,7 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
             text,
             flags=re.IGNORECASE,
         ):
-            full_url = urljoin(response.url, match.group(1))
+            full_url = urljoin(final_page_url, match.group(1))
             haystack = full_url.lower()
 
             score = 10
@@ -359,7 +392,11 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
             candidates.append((score, full_url, ""))
 
     if not candidates:
-        raise RuntimeError(f"No ZIP links found on NAIS page: {page_url}")
+        debug_path = TMP / "nais_page_debug.html"
+        debug_path.write_text(text[:200_000], encoding="utf-8", errors="ignore")
+        raise RuntimeError(
+            f"No ZIP links found on NAIS page. Debug saved to {debug_path}"
+        )
 
     candidates.sort(key=lambda item: item[0], reverse=True)
 
