@@ -303,7 +303,6 @@ def fetch_nais_page_html(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
 
     return html_text, page_url
 
-
 def probe_source(url: str) -> dict[str, Any]:
     try:
         r = requests.head(
