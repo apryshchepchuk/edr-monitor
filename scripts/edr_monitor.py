@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import smtplib
+import subprocess
 import sys
 import time
 import zipfile
@@ -171,22 +172,123 @@ def parse_content_length(headers: dict[str, str]) -> str:
     return headers.get("Content-Length") or headers.get("content-length") or ""
 
 
-def request_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+def request_headers(referer: str = "", extra: dict[str, str] | None = None) -> dict[str, str]:
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) "
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0 Safari/537.36 edrpou-monitor/1.0"
+            "Chrome/124.0.0.0 Safari/537.36"
         ),
-        "Accept": "*/*",
-        "Accept-Language": "uk-UA,uk;q=0.9,en;q=0.8",
+        "Accept": "application/zip,application/octet-stream,*/*",
+        "Accept-Language": "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7",
         "Connection": "keep-alive",
     }
+
+    if referer:
+        headers["Referer"] = referer
 
     if extra:
         headers.update(extra)
 
     return headers
+
+def is_html_response(response: requests.Response) -> bool:
+    content_type = response.headers.get("content-type", "").lower()
+    return "text/html" in content_type or "text/plain" in content_type
+
+
+def print_response_debug(response: requests.Response) -> None:
+    print(f"Download response status: {response.status_code}", flush=True)
+    print(f"Content-Type: {response.headers.get('content-type', '')}", flush=True)
+    print(f"Content-Length: {response.headers.get('content-length', '')}", flush=True)
+
+    if response.status_code != 200 or is_html_response(response):
+        try:
+            preview = response.text[:700]
+        except Exception:
+            preview = ""
+
+        if preview:
+            print(f"Error response preview: {preview}", flush=True)
+
+
+def fetch_nais_page_html(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
+    """
+    ASVP-style: спочатку простий requests.get з Referer.
+    Якщо requests на GitHub runner висить/timeout — пробуємо curl як запасний транспорт.
+    """
+    last_exc: Exception | None = None
+
+    for attempt in range(1, 4):
+        try:
+            print(f"Fetching NAIS page with requests, attempt {attempt}/3: {page_url}", flush=True)
+
+            response = requests.get(
+                page_url,
+                timeout=90,
+                headers=request_headers("https://nais.gov.ua/"),
+                allow_redirects=True,
+            )
+
+            print(f"NAIS page status: {response.status_code}", flush=True)
+            response.raise_for_status()
+
+            if response.text.strip():
+                return response.text, response.url
+
+        except requests.RequestException as exc:
+            last_exc = exc
+            print(f"NAIS page requests attempt {attempt} failed: {exc}", file=sys.stderr, flush=True)
+            time.sleep(min(30, attempt * 10))
+
+    print(f"Trying NAIS page via curl after requests failure: {last_exc}", flush=True)
+
+    curl_cmd = [
+        "curl",
+        "-L",
+        "--fail",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "180",
+        "--connect-timeout",
+        "30",
+        "--compressed",
+        "-A",
+        (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "-H",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "-H",
+        "Accept-Language: uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7",
+        "-e",
+        "https://nais.gov.ua/",
+        page_url,
+    ]
+
+    result = subprocess.run(
+        curl_cmd,
+        text=True,
+        capture_output=True,
+        timeout=210,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Could not fetch NAIS page via requests or curl. "
+            f"requests error: {last_exc}; curl stderr: {result.stderr[-1000:]}"
+        )
+
+    html_text = result.stdout or ""
+
+    if not html_text.strip():
+        raise RuntimeError("curl returned empty NAIS page HTML")
+
+    return html_text, page_url
 
 
 def probe_source(url: str) -> dict[str, Any]:
@@ -313,32 +415,16 @@ def fetch_text_streaming(url: str, max_bytes: int = 2_000_000) -> tuple[str, str
     
 
 def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
-    print(f"Discovering fallback ZIP from NAIS page: {page_url}")
+    print(f"Discovering fallback ZIP from NAIS page: {page_url}", flush=True)
 
-    text = ""
-    final_page_url = page_url
-    last_exc: Exception | None = None
-
-    for attempt in range(1, 5):
-        try:
-            print(f"NAIS page streaming fetch attempt {attempt}/4")
-            text, final_page_url = fetch_text_streaming(page_url)
-            if text.strip():
-                break
-
-        except requests.RequestException as exc:
-            last_exc = exc
-            print(f"NAIS page fetch attempt {attempt} failed: {exc}", file=sys.stderr)
-            time.sleep(min(20, attempt * 5))
-
-    if not text.strip():
-        raise RuntimeError(f"Could not fetch NAIS page after 4 attempts: {last_exc}")
+    html_text, final_page_url = fetch_nais_page_html(page_url)
 
     candidates: list[tuple[int, str, str]] = []
 
+    # Варіант 1: anchor-aware пошук, якщо HTML нормально містить <a href="...zip">label</a>.
     for match in re.finditer(
         r"<a\b[^>]*href=[\"']([^\"']+?\.zip(?:\?[^\"']*)?)[\"'][^>]*>(.*?)</a>",
-        text,
+        html_text,
         flags=re.IGNORECASE | re.DOTALL,
     ):
         href = match.group(1)
@@ -355,50 +441,64 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
         if "16-" in haystack or "16_" in haystack:
             score += 30
 
-        if "uo" in haystack:
+        if re.search(r"\d{2}\.\d{2}\.\d{4}", label):
             score += 20
 
-        if re.search(r"\d{2}\.\d{2}\.\d{4}", label):
+        if "/files/general/202" in full_url:
             score += 10
 
         if "xsd" in haystack or "_xsd" in haystack or "schema" in haystack:
-            score -= 200
+            score -= 500
 
         candidates.append((score, full_url, label))
 
-    if not candidates:
-        for match in re.finditer(
-            r"href=[\"']([^\"']+?\.zip(?:\?[^\"']*)?)[\"']",
-            text,
-            flags=re.IGNORECASE,
-        ):
-            full_url = urljoin(final_page_url, match.group(1))
-            haystack = full_url.lower()
+    # Варіант 2: ASVP-style raw regex по всьому HTML.
+    # Це потрібно, якщо label/anchor парситься погано.
+    raw_links = re.findall(
+        r'(?:https://nais\.gov\.ua)?/files/general/[^"\']+\.zip',
+        html_text,
+        flags=re.IGNORECASE,
+    )
 
-            score = 10
+    normalized_raw_links = sorted({
+        urljoin("https://nais.gov.ua", link)
+        for link in raw_links
+    })
 
-            if "ufopfsu" in haystack:
-                score += 100
+    if normalized_raw_links:
+        print("NAIS raw ZIP links found:", flush=True)
+        for link in normalized_raw_links:
+            print(f"  {link}", flush=True)
 
-            if "16-" in haystack or "16_" in haystack:
-                score += 30
+    known_candidate_urls = {url for _score, url, _label in candidates}
 
-            if "uo" in haystack:
-                score += 20
+    for link in normalized_raw_links:
+        if link in known_candidate_urls:
+            continue
 
-            if "xsd" in haystack or "schema" in haystack:
-                score -= 200
+        haystack = link.lower()
 
-            candidates.append((score, full_url, ""))
+        score = 10
+
+        if "/files/general/202" in haystack:
+            score += 20
+
+        # Якщо label недоступний, орієнтуємось на найновіший URL.
+        # XSD часто має старішу дату, але не завжди містить xsd в URL.
+        candidates.append((score, link, ""))
 
     if not candidates:
         debug_path = TMP / "nais_page_debug.html"
-        debug_path.write_text(text[:200_000], encoding="utf-8", errors="ignore")
-        raise RuntimeError(
-            f"No ZIP links found on NAIS page. Debug saved to {debug_path}"
-        )
+        debug_path.write_text(html_text[:300_000], encoding="utf-8", errors="ignore")
+        raise RuntimeError(f"No ZIP links found on NAIS page. Debug saved to {debug_path}")
 
-    candidates.sort(key=lambda item: item[0], reverse=True)
+    # Ключове: якщо є кандидати з label і там видно xsd — вони матимуть великий мінус.
+    # Якщо label не видно — беремо найновіший /files/general/202... URL за рядковим сортуванням.
+    candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+
+    print("NAIS ZIP candidates ranked:", flush=True)
+    for score, url, label in candidates:
+        print(f"  score={score}; label={label or '—'}; url={url}", flush=True)
 
     best_score, best_url, best_label = candidates[0]
 
@@ -408,7 +508,7 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
             f"Best candidate: {best_url} ({best_label})"
         )
 
-    print(f"Selected NAIS fallback ZIP: {best_label or best_url} -> {best_url}")
+    print(f"Selected NAIS fallback ZIP: {best_label or best_url} -> {best_url}", flush=True)
 
     return best_url, best_label
 
@@ -434,52 +534,63 @@ def resolve_source(primary_url: str, old_source: dict[str, Any]) -> tuple[str, d
     """
     Порядок:
     1. data.gov.ua primary URL;
-    2. динамічний discovery актуального ZIP зі сторінки НАІС;
-    3. аварійний cached NAIS URL з попереднього source_state.json.
+    2. NAIS page discovery ASVP-style;
+    3. cached NAIS URL з попереднього source_state.json.
     """
     try:
-        print(f"Trying primary source: {primary_url}")
+        print(f"Trying primary source: {primary_url}", flush=True)
         meta = probe_source(primary_url)
         meta["source_kind"] = "data_gov_primary"
         return primary_url, meta
 
     except requests.RequestException as exc:
-        print(f"Primary source unavailable: {exc}", file=sys.stderr)
+        print(f"Primary source unavailable: {exc}", file=sys.stderr, flush=True)
 
     discovery_error: Exception | None = None
 
     try:
         fallback_url, fallback_label = discover_nais_uo_zip_url()
 
-        print(f"Trying NAIS page-discovered fallback source: {fallback_url}")
+        meta = {
+            "url": fallback_url,
+            "final_url": fallback_url,
+            "etag": "",
+            "last_modified": fallback_label,
+            "content_length": "",
+            "checked_at": now_iso(),
+            "method": "NAIS_PAGE_REGEX",
+            "source_kind": "nais_page_fallback",
+            "source_page": NAIS_EDR_PAGE_URL,
+            "source_label": fallback_label,
+        }
 
-        meta = probe_source(fallback_url)
-        meta["source_kind"] = "nais_page_fallback"
-        meta["source_page"] = NAIS_EDR_PAGE_URL
-        meta["source_label"] = fallback_label
-
+        print(f"Resolved NAIS fallback source: {fallback_url}", flush=True)
         return fallback_url, meta
 
     except Exception as exc:
         discovery_error = exc
-        print(f"NAIS page discovery failed: {exc}", file=sys.stderr)
+        print(f"NAIS page discovery failed: {exc}", file=sys.stderr, flush=True)
 
     cached_url = cached_nais_url(old_source)
 
     if cached_url:
-        try:
-            print(f"Trying cached NAIS fallback URL from source_state.json: {cached_url}")
+        print(f"Using cached NAIS fallback URL from source_state.json: {cached_url}", flush=True)
 
-            meta = probe_source(cached_url)
-            meta["source_kind"] = "nais_cached_fallback"
-            meta["source_page"] = NAIS_EDR_PAGE_URL
-            meta["source_label"] = old_source.get("source_label", "cached NAIS ZIP")
-            meta["cached_fallback_used"] = True
+        meta = {
+            "url": cached_url,
+            "final_url": cached_url,
+            "etag": "",
+            "last_modified": old_source.get("last_modified", ""),
+            "content_length": "",
+            "checked_at": now_iso(),
+            "method": "NAIS_CACHED_URL",
+            "source_kind": "nais_cached_fallback",
+            "source_page": NAIS_EDR_PAGE_URL,
+            "source_label": old_source.get("source_label", "cached NAIS ZIP"),
+            "cached_fallback_used": True,
+        }
 
-            return cached_url, meta
-
-        except requests.RequestException as exc:
-            print(f"Cached NAIS fallback unavailable: {exc}", file=sys.stderr)
+        return cached_url, meta
 
     raise RuntimeError(
         "Unable to resolve EDR source: primary data.gov.ua unavailable, "
@@ -503,113 +614,85 @@ def get_expected_size(url: str) -> int:
 
 
 def download_zip(url: str, dest: Path) -> None:
-    print(f"Downloading: {url}")
+    print(f"Downloading ZIP: {url}", flush=True)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_suffix(dest.suffix + ".part")
+    part.unlink(missing_ok=True)
 
-    expected_size = get_expected_size(url)
+    source_name = "nais.gov.ua" if "nais.gov.ua" in url.lower() else "data.gov.ua"
+    referer = NAIS_EDR_PAGE_URL if source_name == "nais.gov.ua" else ""
 
-    if expected_size:
-        print(f"Expected size: {expected_size:,} bytes")
-
-    if dest.exists() and expected_size and dest.stat().st_size == expected_size:
-        print(f"ZIP already downloaded: {dest}")
-        return
-
-    max_attempts = 8
-    base_headers = request_headers({"Accept-Encoding": "identity"})
+    max_attempts = 3 if source_name == "nais.gov.ua" else 2
+    sleep_base_seconds = 45
+    headers = request_headers(referer)
 
     for attempt in range(1, max_attempts + 1):
-        existing_size = part.stat().st_size if part.exists() else 0
-
-        if expected_size and existing_size > expected_size:
-            print("Partial file is larger than expected. Removing it.")
-            part.unlink(missing_ok=True)
-            existing_size = 0
-
-        headers = dict(base_headers)
-
-        if existing_size > 0:
-            headers["Range"] = f"bytes={existing_size}-"
-            print(
-                f"Download attempt {attempt}/{max_attempts}: "
-                f"resuming from {existing_size:,} bytes"
-            )
-        else:
-            print(f"Download attempt {attempt}/{max_attempts}: starting from zero")
+        print(
+            f"Downloading EDR ZIP from {source_name}, "
+            f"attempt {attempt}/{max_attempts}: {part}",
+            flush=True,
+        )
 
         try:
             with requests.get(
                 url,
                 stream=True,
-                timeout=(30, 300),
-                allow_redirects=True,
+                timeout=900,
                 headers=headers,
-            ) as r:
-                if existing_size > 0 and r.status_code == 200:
-                    print("Server ignored Range header. Restarting full download.")
-                    part.unlink(missing_ok=True)
-                    existing_size = 0
-                    mode = "wb"
-                elif r.status_code == 206:
-                    mode = "ab"
-                elif r.status_code == 416 and expected_size and existing_size == expected_size:
-                    print("Partial file already complete.")
-                    part.replace(dest)
-                    return
-                else:
-                    r.raise_for_status()
-                    mode = "wb"
+                allow_redirects=True,
+            ) as response:
+                print_response_debug(response)
+                response.raise_for_status()
 
-                downloaded_this_attempt = 0
+                if is_html_response(response):
+                    raise RuntimeError(f"{source_name} returned HTML/text instead of ZIP")
 
-                with part.open(mode) as f:
-                    for chunk in r.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            f.write(chunk)
-                            downloaded_this_attempt += len(chunk)
+                total = 0
 
-                current_size = part.stat().st_size
-                print(
-                    f"Downloaded this attempt: {downloaded_this_attempt:,} bytes; "
-                    f"partial size: {current_size:,} bytes"
-                )
+                with part.open("wb") as f:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024 * 8):
+                        if not chunk:
+                            continue
 
-                if expected_size:
-                    if current_size == expected_size:
-                        part.replace(dest)
-                        print(f"Downloaded to {dest} ({dest.stat().st_size:,} bytes)")
-                        return
+                        f.write(chunk)
+                        total += len(chunk)
 
-                    print(
-                        f"Download incomplete: {current_size:,}/{expected_size:,} bytes. "
-                        "Will retry."
-                    )
-                else:
-                    if current_size > 0:
-                        part.replace(dest)
-                        print(f"Downloaded to {dest} ({dest.stat().st_size:,} bytes)")
-                        return
+                        if total % (1024 * 1024 * 500) < (1024 * 1024 * 8):
+                            print(
+                                f"Downloaded from {source_name}: "
+                                f"{total / 1024 / 1024:.1f} MB",
+                                flush=True,
+                            )
 
-        except (
-            requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.ReadTimeout,
-            requests.exceptions.Timeout,
-            requests.exceptions.RequestException,
-        ) as exc:
-            print(f"Download attempt {attempt} failed: {exc}", file=sys.stderr)
+            size_mb = part.stat().st_size / 1024 / 1024
+            print(f"Download complete from {source_name}: {size_mb:.1f} MB", flush=True)
 
-        sleep_seconds = min(60, 5 * attempt)
-        print(f"Waiting {sleep_seconds} seconds before retry...")
-        time.sleep(sleep_seconds)
+            if size_mb < 10:
+                raise RuntimeError(f"Downloaded file is unexpectedly small: {size_mb:.1f} MB")
 
-    current_size = part.stat().st_size if part.exists() else 0
-    raise RuntimeError(
-        f"Could not download ZIP after {max_attempts} attempts. "
-        f"Partial size: {current_size:,}; expected: {expected_size:,}"
-    )
+            part.replace(dest)
+            print(f"Downloaded to {dest} ({dest.stat().st_size:,} bytes)", flush=True)
+            return
+
+        except Exception as exc:
+            part.unlink(missing_ok=True)
+
+            print(
+                f"Download attempt {attempt}/{max_attempts} "
+                f"from {source_name} failed: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+            if attempt >= max_attempts:
+                raise
+
+            sleep_seconds = sleep_base_seconds * attempt
+            print(f"Sleeping {sleep_seconds} seconds before retry...", flush=True)
+            time.sleep(sleep_seconds)
+
+    raise RuntimeError(f"Download failed from {source_name}")
 
 
 def load_watchlist() -> dict[str, dict[str, Any]]:
