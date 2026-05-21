@@ -16,6 +16,7 @@ from email.mime.text import MIMEText
 from email.utils import formataddr, parseaddr
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import requests
@@ -39,6 +40,11 @@ DASHBOARD = DOCS_DATA / "dashboard.json"
 DEFAULT_UO_URL = (
     "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/"
     "resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip"
+)
+
+NAIS_EDR_PAGE_URL = (
+    "https://nais.gov.ua/m/"
+    "ediniy-derjavniy-reestr-yuridichnih-osib-fizichnih-osib-pidpriemtsiv-ta-gromadskih-formuvan"
 )
 
 COMPARE_FIELDS = [
@@ -159,11 +165,33 @@ def parse_content_length(headers: dict[str, str]) -> str:
     return headers.get("Content-Length") or headers.get("content-length") or ""
 
 
-def probe_source(url: str) -> dict[str, str]:
-    headers = {"User-Agent": "edrpou-monitor/1.0"}
+def request_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0 Safari/537.36 edrpou-monitor/1.0"
+        ),
+        "Accept": "*/*",
+        "Accept-Language": "uk-UA,uk;q=0.9,en;q=0.8",
+        "Connection": "keep-alive",
+    }
 
+    if extra:
+        headers.update(extra)
+
+    return headers
+
+
+def probe_source(url: str) -> dict[str, Any]:
     try:
-        r = requests.head(url, allow_redirects=True, timeout=45, headers=headers)
+        r = requests.head(
+            url,
+            allow_redirects=True,
+            timeout=45,
+            headers=request_headers(),
+        )
+
         if r.status_code < 400:
             meta = {
                 "url": url,
@@ -174,19 +202,32 @@ def probe_source(url: str) -> dict[str, str]:
                 "checked_at": now_iso(),
                 "method": "HEAD",
             }
+
             if meta["etag"] or meta["last_modified"] or meta["content_length"]:
                 return meta
+
+        raise requests.HTTPError(
+            f"HEAD returned HTTP {r.status_code} for {url}",
+            response=r,
+        )
+
     except requests.RequestException as exc:
-        print(f"HEAD failed: {exc}", file=sys.stderr)
+        print(f"HEAD probe failed for {url}: {exc}", file=sys.stderr)
 
     r = requests.get(
         url,
         allow_redirects=True,
         timeout=45,
-        headers={**headers, "Range": "bytes=0-0"},
+        headers=request_headers({"Range": "bytes=0-0"}),
         stream=True,
     )
-    r.raise_for_status()
+
+    if r.status_code >= 400:
+        raise requests.HTTPError(
+            f"Range probe returned HTTP {r.status_code} for {url}",
+            response=r,
+        )
+
     for _ in r.iter_content(chunk_size=1):
         break
 
@@ -221,8 +262,121 @@ def source_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
     return comparable(old) != new_cmp
 
 
+def strip_html(value: str) -> str:
+    return normalize_ws(re.sub(r"<[^>]+>", " ", value or ""))
+
+
+def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
+    print(f"Discovering fallback ZIP from NAIS page: {page_url}")
+
+    response = requests.get(
+        page_url,
+        timeout=60,
+        allow_redirects=True,
+        headers=request_headers(),
+    )
+    response.raise_for_status()
+
+    text = response.text
+    candidates: list[tuple[int, str, str]] = []
+
+    for match in re.finditer(
+        r"<a\b[^>]*href=[\"']([^\"']+?\.zip(?:\?[^\"']*)?)[\"'][^>]*>(.*?)</a>",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    ):
+        href = match.group(1)
+        label = strip_html(match.group(2))
+        full_url = urljoin(response.url, href)
+
+        haystack = f"{label} {full_url}".lower()
+
+        score = 0
+
+        if "ufopfsu" in haystack:
+            score += 100
+
+        if "uo" in haystack:
+            score += 20
+
+        if re.search(r"\d{2}\.\d{2}\.\d{4}", label):
+            score += 10
+
+        if "xsd" in haystack or "_xsd" in haystack or "schema" in haystack:
+            score -= 200
+
+        candidates.append((score, full_url, label))
+
+    if not candidates:
+        for match in re.finditer(
+            r"href=[\"']([^\"']+?\.zip(?:\?[^\"']*)?)[\"']",
+            text,
+            flags=re.IGNORECASE,
+        ):
+            full_url = urljoin(response.url, match.group(1))
+            haystack = full_url.lower()
+
+            score = 10
+
+            if "ufopfsu" in haystack:
+                score += 100
+
+            if "uo" in haystack:
+                score += 20
+
+            if "xsd" in haystack or "schema" in haystack:
+                score -= 200
+
+            candidates.append((score, full_url, ""))
+
+    if not candidates:
+        raise RuntimeError(f"No ZIP links found on NAIS page: {page_url}")
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+
+    best_score, best_url, best_label = candidates[0]
+
+    if best_score < 0:
+        raise RuntimeError(
+            f"Only schema/XSD-like ZIP links found on NAIS page. "
+            f"Best candidate: {best_url} ({best_label})"
+        )
+
+    print(f"Selected NAIS fallback ZIP: {best_label or best_url} -> {best_url}")
+
+    return best_url, best_label
+
+
+def resolve_source(primary_url: str) -> tuple[str, dict[str, Any]]:
+    """
+    Повертає URL для завантаження та source meta.
+
+    1. Спочатку пробує primary data.gov.ua URL.
+    2. Якщо primary недоступний, шукає актуальний ZIP на сторінці НАІС.
+    """
+    try:
+        print(f"Trying primary source: {primary_url}")
+        meta = probe_source(primary_url)
+        meta["source_kind"] = "data_gov_primary"
+        return primary_url, meta
+
+    except requests.RequestException as exc:
+        print(f"Primary source unavailable: {exc}", file=sys.stderr)
+
+    fallback_url, fallback_label = discover_nais_uo_zip_url()
+
+    print(f"Trying NAIS fallback source: {fallback_url}")
+
+    meta = probe_source(fallback_url)
+    meta["source_kind"] = "nais_page_fallback"
+    meta["source_page"] = NAIS_EDR_PAGE_URL
+    meta["source_label"] = fallback_label
+
+    return fallback_url, meta
+
+
 def get_expected_size(url: str) -> int:
-    headers = {"User-Agent": "edrpou-monitor/1.0", "Accept-Encoding": "identity"}
+    headers = request_headers({"Accept-Encoding": "identity"})
 
     try:
         r = requests.head(url, allow_redirects=True, timeout=45, headers=headers)
@@ -250,10 +404,7 @@ def download_zip(url: str, dest: Path) -> None:
         return
 
     max_attempts = 8
-    base_headers = {
-        "User-Agent": "edrpou-monitor/1.0",
-        "Accept-Encoding": "identity",
-    }
+    base_headers = request_headers({"Accept-Encoding": "identity"})
 
     for attempt in range(1, max_attempts + 1):
         existing_size = part.stat().st_size if part.exists() else 0
@@ -368,9 +519,36 @@ def load_watchlist() -> dict[str, dict[str, Any]]:
 def first_xml_name(zip_path: Path) -> str:
     with zipfile.ZipFile(zip_path) as zf:
         names = [n for n in zf.namelist() if n.lower().endswith(".xml")]
+
         if not names:
-            raise RuntimeError("No XML file in UO.zip")
-        return names[0]
+            raise RuntimeError("No XML file found inside ZIP")
+
+        def base(name: str) -> str:
+            return Path(name).name.lower()
+
+        for name in names:
+            if base(name) == "uo.xml":
+                print(f"Selected XML inside ZIP: {name}")
+                return name
+
+        uo_candidates = [
+            name
+            for name in names
+            if "uo" in base(name)
+            and "fop" not in base(name)
+            and "fsu" not in base(name)
+            and "schema" not in base(name)
+            and "xsd" not in base(name)
+        ]
+
+        if uo_candidates:
+            selected = sorted(uo_candidates, key=len)[0]
+            print(f"Selected XML inside ZIP: {selected}")
+            return selected
+
+        selected = names[0]
+        print(f"WARNING: UO.xml not found explicitly. Selected first XML: {selected}")
+        return selected
 
 
 def clear_element(elem: etree._Element) -> None:
@@ -1048,7 +1226,7 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
         </table>
         """
 
-    source_text = source.get("last_modified") or source.get("etag") or "оновлення джерела перевірено"
+    source_text = source.get("source_label") or source.get("last_modified") or source.get("etag") or "оновлення джерела перевірено"
 
     total = int(summary.get("total", 0) or 0)
     summary_line = (
@@ -1105,7 +1283,7 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
           {dashboard_button()}
 
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#667085;margin-top:22px;">
-            Це автоматичний звіт про зміни у поточному snapshot ЄДР. Джерело даних: відкриті дані ЄДР з порталу data.gov.ua.
+            Це автоматичний звіт про зміни у поточному snapshot ЄДР.
             Повні дані та контекст записів доступні у dashboard.
           </div>
 
@@ -1160,11 +1338,18 @@ def split_addresses(raw: str) -> list[str]:
     return [x.strip() for x in re.split(r"[,;]", raw or "") if x.strip()]
 
 
-def format_from(raw: str) -> str:
+def format_from(raw: str, default_name: str = "Моніторинг ЄДРПОУ") -> str:
     name, addr = parseaddr(raw)
-    if name and addr:
-        return formataddr((str(Header(name, "utf-8")), addr))
-    return raw
+
+    if not addr:
+        addr = raw.strip()
+
+    display_name = name or default_name
+
+    if display_name and addr:
+        return formataddr((str(Header(display_name, "utf-8")), addr))
+
+    return addr or raw
 
 
 def send_email(doc: dict[str, Any]) -> None:
@@ -1173,6 +1358,7 @@ def send_email(doc: dict[str, Any]) -> None:
     smtp_user = os.getenv("SMTP_USER", "").strip()
     smtp_pass = os.getenv("SMTP_PASS", "").strip()
     email_from = os.getenv("EMAIL_FROM", smtp_user).strip()
+    envelope_from = parseaddr(email_from)[1] or smtp_user
     email_to = split_addresses(os.getenv("EMAIL_TO", ""))
     dashboard_url = os.getenv("DASHBOARD_URL", "").strip()
 
@@ -1202,7 +1388,7 @@ def send_email(doc: dict[str, Any]) -> None:
     with smtplib.SMTP(smtp_host, smtp_port, timeout=60) as server:
         server.starttls()
         server.login(smtp_user, smtp_pass)
-        server.sendmail(email_from, email_to, msg.as_string())
+        server.sendmail(envelope_from, email_to, msg.as_string())
 
     print(f"Email sent to {', '.join(email_to)}")
 
@@ -1227,9 +1413,9 @@ def build_current(companies: dict[str, dict[str, Any]], source: dict[str, Any]) 
 def main() -> None:
     ensure_dirs()
 
-    source_url = os.getenv("EDR_UO_URL", "").strip() or DEFAULT_UO_URL
+    configured_source_url = os.getenv("EDR_UO_URL", "").strip() or DEFAULT_UO_URL
     old_source = load_json(SOURCE_STATE, {})
-    new_source = probe_source(source_url)
+    source_url, new_source = resolve_source(configured_source_url)
 
     changed = source_changed(old_source, new_source)
     email_force = env_bool("EMAIL_FORCE", False)
@@ -1237,6 +1423,8 @@ def main() -> None:
 
     print("Source changed:", changed)
     print(json.dumps(comparable(new_source), ensure_ascii=False, indent=2))
+    print(f"Resolved source URL: {source_url}")
+    print(f"Source kind: {new_source.get('source_kind', 'unknown')}")
 
     if not changed and not email_force:
         print("Source not changed. Skipping download and parsing.")
