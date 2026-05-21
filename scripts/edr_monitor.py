@@ -81,6 +81,7 @@ def today() -> str:
 def load_json(path: Path, default: Any) -> Any:
     if not path.exists():
         return default
+
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
@@ -129,14 +130,18 @@ def child_text(elem: etree._Element, name: str) -> str:
 def compact_list(items: list[str], limit: int = 30) -> list[str]:
     result = []
     seen = set()
+
     for item in items:
         clean = normalize_ws(item)
         if not clean or clean in seen:
             continue
+
         seen.add(clean)
         result.append(clean)
+
         if len(result) >= limit:
             break
+
     return result
 
 
@@ -162,6 +167,7 @@ def parse_content_length(headers: dict[str, str]) -> str:
     cr = headers.get("Content-Range") or headers.get("content-range")
     if cr and "/" in cr:
         return cr.rsplit("/", 1)[-1].strip()
+
     return headers.get("Content-Length") or headers.get("content-length") or ""
 
 
@@ -256,6 +262,7 @@ def source_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
         return True
 
     new_cmp = comparable(new)
+
     if not any(new_cmp.values()):
         return True
 
@@ -269,13 +276,29 @@ def strip_html(value: str) -> str:
 def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
     print(f"Discovering fallback ZIP from NAIS page: {page_url}")
 
-    response = requests.get(
-        page_url,
-        timeout=60,
-        allow_redirects=True,
-        headers=request_headers(),
-    )
-    response.raise_for_status()
+    response: requests.Response | None = None
+    last_exc: Exception | None = None
+
+    for attempt in range(1, 4):
+        try:
+            print(f"NAIS page fetch attempt {attempt}/3")
+
+            response = requests.get(
+                page_url,
+                timeout=(20, 180),
+                allow_redirects=True,
+                headers=request_headers(),
+            )
+            response.raise_for_status()
+            break
+
+        except requests.RequestException as exc:
+            last_exc = exc
+            print(f"NAIS page fetch attempt {attempt} failed: {exc}", file=sys.stderr)
+            time.sleep(min(30, attempt * 10))
+
+    if response is None:
+        raise RuntimeError(f"Could not fetch NAIS page after 3 attempts: {last_exc}")
 
     text = response.text
     candidates: list[tuple[int, str, str]] = []
@@ -295,6 +318,9 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
 
         if "ufopfsu" in haystack:
             score += 100
+
+        if "16-" in haystack or "16_" in haystack:
+            score += 30
 
         if "uo" in haystack:
             score += 20
@@ -320,6 +346,9 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
 
             if "ufopfsu" in haystack:
                 score += 100
+
+            if "16-" in haystack or "16_" in haystack:
+                score += 30
 
             if "uo" in haystack:
                 score += 20
@@ -347,12 +376,29 @@ def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, st
     return best_url, best_label
 
 
-def resolve_source(primary_url: str) -> tuple[str, dict[str, Any]]:
-    """
-    Повертає URL для завантаження та source meta.
+def cached_nais_url(old_source: dict[str, Any]) -> str:
+    if not isinstance(old_source, dict):
+        return ""
 
-    1. Спочатку пробує primary data.gov.ua URL.
-    2. Якщо primary недоступний, шукає актуальний ZIP на сторінці НАІС.
+    source_kind = str(old_source.get("source_kind") or "")
+
+    if not source_kind.startswith("nais_"):
+        return ""
+
+    for key in ("url", "final_url"):
+        value = str(old_source.get(key) or "").strip()
+        if value.lower().endswith(".zip") or ".zip?" in value.lower():
+            return value
+
+    return ""
+
+
+def resolve_source(primary_url: str, old_source: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """
+    Порядок:
+    1. data.gov.ua primary URL;
+    2. динамічний discovery актуального ZIP зі сторінки НАІС;
+    3. аварійний cached NAIS URL з попереднього source_state.json.
     """
     try:
         print(f"Trying primary source: {primary_url}")
@@ -363,16 +409,46 @@ def resolve_source(primary_url: str) -> tuple[str, dict[str, Any]]:
     except requests.RequestException as exc:
         print(f"Primary source unavailable: {exc}", file=sys.stderr)
 
-    fallback_url, fallback_label = discover_nais_uo_zip_url()
+    discovery_error: Exception | None = None
 
-    print(f"Trying NAIS fallback source: {fallback_url}")
+    try:
+        fallback_url, fallback_label = discover_nais_uo_zip_url()
 
-    meta = probe_source(fallback_url)
-    meta["source_kind"] = "nais_page_fallback"
-    meta["source_page"] = NAIS_EDR_PAGE_URL
-    meta["source_label"] = fallback_label
+        print(f"Trying NAIS page-discovered fallback source: {fallback_url}")
 
-    return fallback_url, meta
+        meta = probe_source(fallback_url)
+        meta["source_kind"] = "nais_page_fallback"
+        meta["source_page"] = NAIS_EDR_PAGE_URL
+        meta["source_label"] = fallback_label
+
+        return fallback_url, meta
+
+    except Exception as exc:
+        discovery_error = exc
+        print(f"NAIS page discovery failed: {exc}", file=sys.stderr)
+
+    cached_url = cached_nais_url(old_source)
+
+    if cached_url:
+        try:
+            print(f"Trying cached NAIS fallback URL from source_state.json: {cached_url}")
+
+            meta = probe_source(cached_url)
+            meta["source_kind"] = "nais_cached_fallback"
+            meta["source_page"] = NAIS_EDR_PAGE_URL
+            meta["source_label"] = old_source.get("source_label", "cached NAIS ZIP")
+            meta["cached_fallback_used"] = True
+
+            return cached_url, meta
+
+        except requests.RequestException as exc:
+            print(f"Cached NAIS fallback unavailable: {exc}", file=sys.stderr)
+
+    raise RuntimeError(
+        "Unable to resolve EDR source: primary data.gov.ua unavailable, "
+        f"NAIS page discovery failed, and cached fallback is unavailable. "
+        f"Discovery error: {discovery_error}"
+    )
 
 
 def get_expected_size(url: str) -> int:
@@ -396,6 +472,7 @@ def download_zip(url: str, dest: Path) -> None:
     part = dest.with_suffix(dest.suffix + ".part")
 
     expected_size = get_expected_size(url)
+
     if expected_size:
         print(f"Expected size: {expected_size:,} bytes")
 
@@ -500,16 +577,21 @@ def download_zip(url: str, dest: Path) -> None:
 
 def load_watchlist() -> dict[str, dict[str, Any]]:
     raw = load_json(WATCHLIST, [])
+
     if not isinstance(raw, list):
         raise RuntimeError("config/watchlist.json must be a JSON array")
 
     result = {}
+
     for item in raw:
         if not isinstance(item, dict):
             continue
+
         if item.get("enabled") is False:
             continue
+
         code = normalize_code(item.get("edrpou"))
+
         if code:
             result[code] = item
 
@@ -554,6 +636,7 @@ def first_xml_name(zip_path: Path) -> str:
 def clear_element(elem: etree._Element) -> None:
     parent = elem.getparent()
     elem.clear()
+
     if parent is not None:
         while elem.getprevious() is not None:
             del parent[0]
@@ -593,6 +676,7 @@ def extract_dates_from_text(value: Any) -> list[datetime]:
 
     for match in re.finditer(r"\b(\d{2})\.(\d{2})\.(\d{4})\b", text):
         day, month, year = match.groups()
+
         try:
             dates.append(datetime(int(year), int(month), int(day)))
         except ValueError:
@@ -640,12 +724,6 @@ def status_group(company: dict[str, Any]) -> str:
 
 
 def state_rank(company: dict[str, Any]) -> int:
-    """
-    Важливо:
-    - "припинено" має бути нижче будь-якого неприпиненого стану;
-    - "зареєстровано" має перемагати історичні припинені записи;
-    - "в стані припинення" і банкрутство — найризиковіші актуальні стани.
-    """
     group = status_group(company)
 
     ranks = {
@@ -690,12 +768,6 @@ def name_match_rank(company: dict[str, Any], watch_item: dict[str, Any]) -> int:
 
 
 def company_score(company: dict[str, Any], watch_item: dict[str, Any]) -> tuple[int, int, datetime]:
-    """
-    Порядок:
-    1. стан;
-    2. схожість назви з watchlist;
-    3. дата реєстраційної/статусної інформації.
-    """
     return (
         state_rank(company),
         name_match_rank(company, watch_item),
@@ -709,6 +781,7 @@ def selection_reason_for(
     watch_item: dict[str, Any],
 ) -> str:
     watch_record = normalize_ws(watch_item.get("record", ""))
+
     if watch_record and normalize_ws(selected.get("record", "")) == watch_record:
         return "selected_by_watchlist_record"
 
@@ -770,6 +843,7 @@ def select_best_company_record(
             for item in candidates
             if normalize_ws(item.get("record", "")) == watch_record
         ]
+
         if exact_matches:
             selected = exact_matches[0]
 
@@ -841,6 +915,7 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
 
         if len(candidates) > 1:
             print(f"Duplicate EDRPOU records detected: {code}")
+
             for item in candidates:
                 print(
                     "  - "
@@ -850,6 +925,7 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
                     f"group={status_group(item)} | "
                     f"score={company_score(item, watch[code])}"
                 )
+
             print(
                 f"  SELECTED: RECORD={selected.get('record')} | "
                 f"{selected.get('name')} "
@@ -894,17 +970,22 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
 def norm_compare(value: Any) -> Any:
     if isinstance(value, list):
         return sorted(normalize_ws(x) for x in value if normalize_ws(x))
+
     return normalize_ws(value)
 
 
 def status_change_type(status: str) -> tuple[str, str]:
     s = status.lower()
+
     if "банкрут" in s:
         return "bankruptcy_started", "critical"
+
     if "в стані припинення" in s:
         return "termination_started", "critical"
+
     if "припинено" in s:
         return "terminated", "critical"
+
     return "status_changed", "medium"
 
 
@@ -937,14 +1018,18 @@ def make_change(
 def dedupe(changes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result = []
     seen = set()
+
     for ch in changes:
         key = (ch["edrpou"], ch["change_type"], ch["old_value"], ch["new_value"])
+
         if key in seen:
             continue
+
         seen.add(key)
         result.append(ch)
 
     order = {"critical": 0, "medium": 1, "low": 2}
+
     return sorted(result, key=lambda x: (order.get(x["severity"], 9), x["name"]))
 
 
@@ -966,15 +1051,25 @@ def compare_snapshots(previous: dict[str, Any], current: dict[str, dict[str, Any
             continue
 
         if old.get("found", True) and not cur.get("found", True):
-            changes.append(make_change(
-                code, cur, "not_found_in_source", "medium",
-                old.get("stan", ""), "не знайдено у джерелі"
-            ))
+            changes.append(
+                make_change(
+                    code,
+                    cur,
+                    "not_found_in_source",
+                    "medium",
+                    old.get("stan", ""),
+                    "не знайдено у джерелі",
+                )
+            )
             continue
 
         for field, default_type, default_severity in COMPARE_FIELDS:
-            old_value = norm_compare(old.get(field, [] if field in {"signers", "founders", "beneficiaries"} else ""))
-            new_value = norm_compare(cur.get(field, [] if field in {"signers", "founders", "beneficiaries"} else ""))
+            old_value = norm_compare(
+                old.get(field, [] if field in {"signers", "founders", "beneficiaries"} else "")
+            )
+            new_value = norm_compare(
+                cur.get(field, [] if field in {"signers", "founders", "beneficiaries"} else "")
+            )
 
             if old_value == new_value:
                 continue
@@ -985,10 +1080,13 @@ def compare_snapshots(previous: dict[str, Any], current: dict[str, dict[str, Any
 
             if field == "stan":
                 change_type, severity = status_change_type(str(new_value))
+
             elif field == "termination_started_info" and not old_value and new_value:
                 change_type, severity, details = "termination_started", "critical", str(new_value)
+
             elif field == "terminated_info" and not old_value and new_value:
                 change_type, severity, details = "terminated", "critical", str(new_value)
+
             elif field == "bankruptcy_readjustment_info" and not old_value and new_value:
                 change_type, severity, details = "bankruptcy_started", "critical", str(new_value)
 
@@ -999,30 +1097,38 @@ def compare_snapshots(previous: dict[str, Any], current: dict[str, dict[str, Any
 
 def summarize(changes: list[dict[str, Any]]) -> dict[str, int]:
     result = {"critical": 0, "medium": 0, "low": 0, "total": len(changes)}
+
     for ch in changes:
         if ch["severity"] in result:
             result[ch["severity"]] += 1
+
     return result
 
 
 def update_history(summary: dict[str, int], source: dict[str, Any]) -> list[dict[str, Any]]:
     history = load_json(HISTORY, [])
+
     if not isinstance(history, list):
         history = []
 
-    history.append({
-        "date": today(),
-        "generated_at": now_iso(),
-        "critical": summary["critical"],
-        "medium": summary["medium"],
-        "low": summary["low"],
-        "total": summary["total"],
-        "source_last_modified": source.get("last_modified", ""),
-        "source_etag": source.get("etag", ""),
-    })
+    history.append(
+        {
+            "date": today(),
+            "generated_at": now_iso(),
+            "critical": summary["critical"],
+            "medium": summary["medium"],
+            "low": summary["low"],
+            "total": summary["total"],
+            "source_last_modified": source.get("last_modified", ""),
+            "source_etag": source.get("etag", ""),
+            "source_kind": source.get("source_kind", ""),
+            "source_label": source.get("source_label", ""),
+        }
+    )
 
     history = history[-250:]
     save_json(HISTORY, history)
+
     return history
 
 
@@ -1037,8 +1143,10 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
 
     def truncate(value: Any, limit: int = 520) -> str:
         text = normalize_ws(value)
+
         if len(text) <= limit:
             return text
+
         return text[:limit].rstrip() + "…"
 
     def color(sev: str) -> str:
@@ -1132,7 +1240,6 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
         sev = ch.get("severity", "low")
         c = color(sev)
         bg = light_bg(sev)
-
         details = truncate(ch.get("details"), 700)
 
         details_block = ""
@@ -1140,8 +1247,10 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
             details_block = info_row("Деталі", details)
 
         technical = []
+
         if ch.get("record"):
             technical.append(f"RECORD: {ch.get('record')}")
+
         if ch.get("detected_at"):
             technical.append(f"Виявлено: {ch.get('detected_at')}")
 
@@ -1196,6 +1305,7 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
 
     for severity in ["critical", "medium", "low"]:
         items = grouped[severity]
+
         if not items:
             continue
 
@@ -1226,7 +1336,12 @@ def build_email_html(doc: dict[str, Any], dashboard_url: str) -> str:
         </table>
         """
 
-    source_text = source.get("source_label") or source.get("last_modified") or source.get("etag") or "оновлення джерела перевірено"
+    source_text = (
+        source.get("source_label")
+        or source.get("last_modified")
+        or source.get("etag")
+        or "оновлення джерела перевірено"
+    )
 
     total = int(summary.get("total", 0) or 0)
     summary_line = (
@@ -1304,6 +1419,7 @@ def build_plain(doc: dict[str, Any], dashboard_url: str) -> str:
     ]
 
     s = doc.get("summary", {})
+
     lines += [
         f"Критичні: {s.get('critical', 0)}",
         f"Потребують перевірки: {s.get('medium', 0)}",
@@ -1320,12 +1436,16 @@ def build_plain(doc: dict[str, Any], dashboard_url: str) -> str:
         for ch in changes[:60]:
             lines.append(f"- [{ch.get('severity')}] {ch.get('edrpou')} {ch.get('name') or ch.get('watch_name')}")
             lines.append(f"  Тип: {ch.get('change_type')}")
+
             if ch.get("record"):
                 lines.append(f"  RECORD: {ch.get('record')}")
+
             lines.append(f"  Було: {ch.get('old_value') or '—'}")
             lines.append(f"  Стало: {ch.get('new_value') or '—'}")
+
             if ch.get("details"):
                 lines.append(f"  Деталі: {normalize_ws(ch.get('details'))[:700]}")
+
             lines.append("")
 
     if dashboard_url:
@@ -1395,6 +1515,7 @@ def send_email(doc: dict[str, Any]) -> None:
 
 def build_current(companies: dict[str, dict[str, Any]], source: dict[str, Any]) -> dict[str, Any]:
     items = [companies[k] for k in sorted(companies)]
+
     return {
         "generated_at": now_iso(),
         "source": source,
@@ -1415,7 +1536,7 @@ def main() -> None:
 
     configured_source_url = os.getenv("EDR_UO_URL", "").strip() or DEFAULT_UO_URL
     old_source = load_json(SOURCE_STATE, {})
-    source_url, new_source = resolve_source(configured_source_url)
+    source_url, new_source = resolve_source(configured_source_url, old_source)
 
     changed = source_changed(old_source, new_source)
     email_force = env_bool("EMAIL_FORCE", False)
@@ -1428,17 +1549,21 @@ def main() -> None:
 
     if not changed and not email_force:
         print("Source not changed. Skipping download and parsing.")
+
         merged = dict(old_source)
         merged["checked_at"] = new_source.get("checked_at", now_iso())
         merged["last_probe"] = new_source
+
         save_json(SOURCE_STATE, merged)
         return
 
     watch = load_watchlist()
+
     if not watch:
         raise RuntimeError("No enabled codes in config/watchlist.json")
 
     zip_path = TMP / "uo.zip"
+
     if changed or not zip_path.exists():
         download_zip(source_url, zip_path)
 
@@ -1473,6 +1598,7 @@ def main() -> None:
         "changes": changes,
         "history": history,
     }
+
     save_json(DASHBOARD, dashboard_doc)
     save_json(SOURCE_STATE, new_source)
 
