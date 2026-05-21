@@ -214,14 +214,22 @@ def print_response_debug(response: requests.Response) -> None:
 
 def fetch_nais_page_html(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
     """
-    ASVP-style: спочатку простий requests.get з Referer.
-    Якщо requests на GitHub runner висить/timeout — пробуємо curl як запасний транспорт.
+    ASVP-style:
+    1 коротка спроба requests.get з Referer;
+    якщо GitHub runner зависає/timeout — fallback на curl.
+
+    Для curl примусово використовуємо HTTP/1.1 та IPv4,
+    бо на GitHub runner НАІС може падати з HTTP/2 INTERNAL_ERROR.
     """
     last_exc: Exception | None = None
 
-    for attempt in range(1, 4):
+    # Не чекаємо 3 x 90 секунд. Одна спроба requests, далі curl.
+    for attempt in range(1, 2):
         try:
-            print(f"Fetching NAIS page with requests, attempt {attempt}/3: {page_url}", flush=True)
+            print(
+                f"Fetching NAIS page with requests, attempt {attempt}/1: {page_url}",
+                flush=True,
+            )
 
             response = requests.get(
                 page_url,
@@ -238,19 +246,24 @@ def fetch_nais_page_html(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
 
         except requests.RequestException as exc:
             last_exc = exc
-            print(f"NAIS page requests attempt {attempt} failed: {exc}", file=sys.stderr, flush=True)
-            time.sleep(min(30, attempt * 10))
+            print(
+                f"NAIS page requests attempt {attempt} failed: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     print(f"Trying NAIS page via curl after requests failure: {last_exc}", flush=True)
 
     curl_cmd = [
         "curl",
+        "--http1.1",
+        "--ipv4",
         "-L",
         "--fail",
         "--silent",
         "--show-error",
         "--max-time",
-        "180",
+        "240",
         "--connect-timeout",
         "30",
         "--compressed",
@@ -273,7 +286,7 @@ def fetch_nais_page_html(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
         curl_cmd,
         text=True,
         capture_output=True,
-        timeout=210,
+        timeout=270,
         check=False,
     )
 
@@ -326,7 +339,7 @@ def probe_source(url: str) -> dict[str, Any]:
         url,
         allow_redirects=True,
         timeout=45,
-        headers=request_headers({"Range": "bytes=0-0"}),
+        headers=request_headers(extra={"Range": "bytes=0-0"}),
         stream=True,
     )
 
@@ -373,46 +386,6 @@ def source_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
 
 def strip_html(value: str) -> str:
     return normalize_ws(re.sub(r"<[^>]+>", " ", value or ""))
-
-def fetch_text_streaming(url: str, max_bytes: int = 2_000_000) -> tuple[str, str]:
-    """
-    Читає HTML потоково і не чекає нескінченно закриття зʼєднання сервером.
-    Повертає: (text, final_url).
-    """
-    chunks: list[bytes] = []
-    total = 0
-
-    with requests.get(
-        url,
-        timeout=(20, 45),
-        allow_redirects=True,
-        headers=request_headers({
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-        }),
-        stream=True,
-    ) as response:
-        response.raise_for_status()
-
-        for chunk in response.iter_content(chunk_size=64 * 1024):
-            if not chunk:
-                continue
-
-            chunks.append(chunk)
-            total += len(chunk)
-
-            joined_tail = b"".join(chunks[-3:]).lower()
-
-            if b"</html>" in joined_tail:
-                break
-
-            if total >= max_bytes:
-                print(f"HTML streaming reached {max_bytes:,} bytes. Stop reading.")
-                break
-
-        encoding = response.encoding or "utf-8"
-        return b"".join(chunks).decode(encoding, errors="replace"), response.url
-    
 
 def discover_nais_uo_zip_url(page_url: str = NAIS_EDR_PAGE_URL) -> tuple[str, str]:
     print(f"Discovering fallback ZIP from NAIS page: {page_url}", flush=True)
@@ -600,7 +573,7 @@ def resolve_source(primary_url: str, old_source: dict[str, Any]) -> tuple[str, d
 
 
 def get_expected_size(url: str) -> int:
-    headers = request_headers({"Accept-Encoding": "identity"})
+    headers = request_headers(extra={"Accept-Encoding": "identity"})
 
     try:
         r = requests.head(url, allow_redirects=True, timeout=45, headers=headers)
