@@ -1,20 +1,10 @@
 {
   "url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
   "final_url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
-  "etag": "\"6a1e9ba4-171d449a\"",
-  "last_modified": "Tue, 02 Jun 2026 09:00:20 GMT",
-  "content_length": "387794074",
-  "checked_at": "2026-06-09T11:42:59+03:00",
+  "etag": "\"6a282dbf-136721f9\"",
+  "last_modified": "Tue, 09 Jun 2026 15:14:07 GMT",
+  "content_length": "325526009",
+  "checked_at": "2026-06-09T21:22:58+03:00",
   "method": "HEAD",
-  "source_kind": "data_gov_primary",
-  "last_probe": {
-    "url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
-    "final_url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
-    "etag": "\"6a1e9ba4-171d449a\"",
-    "last_modified": "Tue, 02 Jun 2026 09:00:20 GMT",
-    "content_length": "387794074",
-    "checked_at": "2026-06-09T11:42:59+03:00",
-    "method": "HEAD",
-    "source_kind": "data_gov_primary"
-  }
+  "source_kind": "data_gov_primary"
 }
