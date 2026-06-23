@@ -78,5 +78,17 @@
     "source_etag": "\"6a31148f-13696fa2\"",
     "source_kind": "data_gov_primary",
     "source_label": ""
+  },
+  {
+    "date": "2026-06-23",
+    "generated_at": "2026-06-23T21:17:52+03:00",
+    "critical": 0,
+    "medium": 1,
+    "low": 0,
+    "total": 1,
+    "source_last_modified": "Tue, 23 Jun 2026 08:33:26 GMT",
+    "source_etag": "\"6a3a44d6-136ba643\"",
+    "source_kind": "data_gov_primary",
+    "source_label": ""
   }
 ]
