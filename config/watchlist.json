@@ -1948,5 +1948,15 @@
     ],
     "notes": "",
     "severity": "normal"
+  },
+    {
+    "edrpou": "01999632",
+    "name": "КНМП \"Кременчуцький перинатальний центр ІІ рівня\"",
+    "enabled": true,
+    "tags": [
+      "покупець"
+    ],
+    "notes": "",
+    "severity": "normal"
   }
 ]
