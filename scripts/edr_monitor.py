@@ -11,6 +11,7 @@ import sys
 import time
 import zipfile
 from datetime import datetime
+from contextlib import contextmanager
 from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -956,6 +957,69 @@ def select_best_company_record(
 
     return selected
 
+@contextmanager
+def open_xml_from_zip(zip_path: Path, xml_name: str):
+    """
+    Спочатку пробуємо стандартний zipfile.
+    Якщо Python не підтримує метод стиснення архіву — fallback на 7z.
+    """
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            try:
+                with zf.open(xml_name) as xml_file:
+                    yield xml_file
+                    return
+
+            except NotImplementedError as exc:
+                print(
+                    f"Python zipfile cannot decompress {xml_name}: {exc}. "
+                    "Trying 7z fallback.",
+                    flush=True,
+                )
+
+    except NotImplementedError as exc:
+        print(
+            f"Python zipfile cannot open ZIP compression method: {exc}. "
+            "Trying 7z fallback.",
+            flush=True,
+        )
+
+    try:
+        process = subprocess.Popen(
+            ["7z", "x", "-so", str(zip_path), xml_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "7z is not installed. Add p7zip-full to GitHub Actions workflow."
+        ) from exc
+
+    if process.stdout is None:
+        raise RuntimeError("Could not open 7z stdout")
+
+    try:
+        yield process.stdout
+
+    finally:
+        try:
+            process.stdout.close()
+        except Exception:
+            pass
+
+        stderr_text = ""
+        if process.stderr is not None:
+            stderr_text = process.stderr.read().decode("utf-8", errors="replace").strip()
+
+        return_code = process.wait()
+
+        if return_code != 0:
+            raise RuntimeError(
+                f"7z failed with exit code {return_code}. "
+                f"stderr: {stderr_text[-1500:]}"
+            )
+
 
 def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     xml_name = first_xml_name(zip_path)
@@ -963,15 +1027,14 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
 
     print(f"Parsing {xml_name}; watchlist: {len(watch)} codes")
 
-    with zipfile.ZipFile(zip_path) as zf:
-        with zf.open(xml_name) as xml_file:
-            context = etree.iterparse(
-                xml_file,
-                events=("end",),
-                tag="SUBJECT",
-                recover=True,
-                huge_tree=True,
-            )
+    with open_xml_from_zip(zip_path, xml_name) as xml_file:
+        context = etree.iterparse(
+            xml_file,
+            events=("end",),
+            tag="SUBJECT",
+            recover=True,
+            huge_tree=True,
+        )
 
             processed = 0
 
