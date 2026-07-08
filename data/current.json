@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-06-30T21:17:30+03:00",
+  "generated_at": "2026-07-08T11:44:36+03:00",
   "source": {
     "url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
     "final_url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
-    "etag": "\"6a438781-136db021\"",
-    "last_modified": "Tue, 30 Jun 2026 09:08:17 GMT",
-    "content_length": "325955617",
-    "checked_at": "2026-06-30T21:16:09+03:00",
+    "etag": "\"6a4cffbf-1349a585\"",
+    "last_modified": "Tue, 07 Jul 2026 13:31:43 GMT",
+    "content_length": "323593605",
+    "checked_at": "2026-07-08T11:43:22+03:00",
     "method": "HEAD",
     "source_kind": "data_gov_primary"
   },
   "stats": {
-    "watchlist_enabled": 194,
-    "found": 194,
+    "watchlist_enabled": 195,
+    "found": 195,
     "not_found": 0,
-    "selected_from_duplicate_records": 5
+    "selected_from_duplicate_records": 6
   },
   "companies": [
     {
@@ -50,6 +50,78 @@
       "selected_from_duplicate_records": false,
       "selection_reason": "single_record",
       "duplicate_records_summary": []
+    },
+    {
+      "record": "12255988",
+      "edrpou": "01999632",
+      "watch_name": "КНМП \"Кременчуцький перинатальний центр ІІ рівня\"",
+      "watch_record": "",
+      "tags": [
+        "покупець"
+      ],
+      "notes": "",
+      "watch_severity": "normal",
+      "found": true,
+      "name": "КОМУНАЛЬНЕ НЕКОМЕРЦІЙНЕ МЕДИЧНЕ ПІДПРИЄМСТВО \"КРЕМЕНЧУЦЬКИЙ ПЕРИНАТАЛЬНИЙ ЦЕНТР ІІ РІВНЯ\"",
+      "short_name": "КНМП \"КРЕМЕНЧУЦЬКИЙ ПЕРИНАТАЛЬНИЙ ЦЕНТР ІІ РІВНЯ\"",
+      "opf": "КОМУНАЛЬНЕ ПІДПРИЄМСТВО",
+      "stan": "в стані припинення",
+      "registration_info": "20.08.1999; 05.04.2018; 15851450000010292",
+      "termination_started_info": "27.02.2026 Внесення рішення засновників (учасників) юридичної особи або уповноваженого ними органу щодо припинення юридичної особи в результаті її реорганізації в стані припинення Сербін Радомир Анатолійович - голова комісії з припинення 27.04.2026",
+      "terminated_info": "",
+      "termination_cancel_info": "",
+      "bankruptcy_readjustment_info": "",
+      "signers": [
+        "СЕРБІН РАДОМИР АНАТОЛІЙОВИЧ; (укладено контракт терміном на 5 років з 14 серпня 2021 року по 13 серпня 2026 року) - керівник",
+        "СЕРБІН РАДОМИР АНАТОЛІЙОВИЧ; (Повноваження: Вчиняти дії від імені юридичної особи, у тому числі підписувати договори тощо (укладено контракт терміном на 5 років з 14 серпня 2021 року по 13 серпня 2026 року)) - представник"
+      ],
+      "founders": [
+        "КРЕМЕНЧУЦЬКА МІСЬКА РАДА КРЕМЕНЧУЦЬКОГО РАЙОНУ ПОЛТАВСЬКОЇ ОБЛАСТІ; 24388300; резиденство: Україна"
+      ],
+      "beneficiaries": [],
+      "candidate_count": 2,
+      "selected_from_duplicate_records": true,
+      "selection_reason": "selected_non_terminated_record",
+      "duplicate_records_summary": [
+        {
+          "record": "577901",
+          "edrpou": "01999632",
+          "name": "МІСЬКИЙ ПОЛОГОВИЙ БУДИНОК",
+          "short_name": "",
+          "opf": "КОМУНАЛЬНА ОРГАНІЗАЦІЯ (УСТАНОВА, ЗАКЛАД)",
+          "stan": "припинено",
+          "status_group": "terminated",
+          "registration_info": "20.08.1999; 02.06.2005; 15851200000001352",
+          "termination_started_info": "",
+          "terminated_info": "05.04.2018; 15851120013001352; Державна реєстрація припинення юридичної особи в результаті її реорганізації",
+          "termination_cancel_info": "",
+          "bankruptcy_readjustment_info": "",
+          "score": {
+            "state_rank": 100,
+            "name_match_rank": 60,
+            "latest_date": "2018-04-05T00:00:00"
+          }
+        },
+        {
+          "record": "12255988",
+          "edrpou": "01999632",
+          "name": "КОМУНАЛЬНЕ НЕКОМЕРЦІЙНЕ МЕДИЧНЕ ПІДПРИЄМСТВО \"КРЕМЕНЧУЦЬКИЙ ПЕРИНАТАЛЬНИЙ ЦЕНТР ІІ РІВНЯ\"",
+          "short_name": "КНМП \"КРЕМЕНЧУЦЬКИЙ ПЕРИНАТАЛЬНИЙ ЦЕНТР ІІ РІВНЯ\"",
+          "opf": "КОМУНАЛЬНЕ ПІДПРИЄМСТВО",
+          "stan": "в стані припинення",
+          "status_group": "termination",
+          "registration_info": "20.08.1999; 05.04.2018; 15851450000010292",
+          "termination_started_info": "27.02.2026 Внесення рішення засновників (учасників) юридичної особи або уповноваженого ними органу щодо припинення юридичної особи в результаті її реорганізації в стані припинення Сербін Радомир Анатолійович - голова комісії з припинення 27.04.2026",
+          "terminated_info": "",
+          "termination_cancel_info": "",
+          "bankruptcy_readjustment_info": "",
+          "score": {
+            "state_rank": 600,
+            "name_match_rank": 100,
+            "latest_date": "2026-04-27T00:00:00"
+          }
+        }
+      ]
     },
     {
       "record": "13854827",
