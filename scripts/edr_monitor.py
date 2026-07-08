@@ -1036,31 +1036,31 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
             huge_tree=True,
         )
 
-            processed = 0
+        processed = 0
 
-            for _event, elem in context:
-                processed += 1
+        for _event, elem in context:
+            processed += 1
 
-                if processed % 100000 == 0:
-                    print(
-                        f"Processed: {processed:,}; "
-                        f"matched codes: {len(candidates_by_code)}/{len(watch)}"
-                    )
+            if processed % 100000 == 0:
+                print(
+                    f"Processed: {processed:,}; "
+                    f"matched codes: {len(candidates_by_code)}/{len(watch)}"
+                )
 
-                code = normalize_code(child_text(elem, "EDRPOU"))
+            code = normalize_code(child_text(elem, "EDRPOU"))
 
-                if code in watch:
-                    candidate = extract_company(elem, watch[code])
-                    candidates_by_code.setdefault(code, []).append(candidate)
+            if code in watch:
+                candidate = extract_company(elem, watch[code])
+                candidates_by_code.setdefault(code, []).append(candidate)
 
-                    print(
-                        f"Candidate {code}: "
-                        f"{candidate.get('name') or watch[code].get('name')} "
-                        f"[{candidate.get('stan')}] "
-                        f"RECORD={candidate.get('record')}"
-                    )
+                print(
+                    f"Candidate {code}: "
+                    f"{candidate.get('name') or watch[code].get('name')} "
+                    f"[{candidate.get('stan')}] "
+                    f"RECORD={candidate.get('record')}"
+                )
 
-                clear_element(elem)
+            clear_element(elem)
 
     found: dict[str, dict[str, Any]] = {}
 
@@ -1120,7 +1120,6 @@ def parse_uo_zip(zip_path: Path, watch: dict[str, dict[str, Any]]) -> dict[str, 
         }
 
     return found
-
 
 def norm_compare(value: Any) -> Any:
     if isinstance(value, list):
