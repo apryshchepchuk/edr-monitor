@@ -4,7 +4,7 @@
   "etag": "\"6a4cffbf-1349a585\"",
   "last_modified": "Tue, 07 Jul 2026 13:31:43 GMT",
   "content_length": "323593605",
-  "checked_at": "2026-07-12T10:38:22+03:00",
+  "checked_at": "2026-07-12T20:28:06+03:00",
   "method": "HEAD",
   "source_kind": "data_gov_primary",
   "last_probe": {
@@ -13,7 +13,7 @@
     "etag": "\"6a4cffbf-1349a585\"",
     "last_modified": "Tue, 07 Jul 2026 13:31:43 GMT",
     "content_length": "323593605",
-    "checked_at": "2026-07-12T10:38:22+03:00",
+    "checked_at": "2026-07-12T20:28:06+03:00",
     "method": "HEAD",
     "source_kind": "data_gov_primary"
   }
