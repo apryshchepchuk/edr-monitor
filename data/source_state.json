@@ -4,7 +4,17 @@
   "etag": "\"6a5f2da9-1373e010\"",
   "last_modified": "Tue, 21 Jul 2026 08:28:25 GMT",
   "content_length": "326361104",
-  "checked_at": "2026-07-22T10:43:25+03:00",
+  "checked_at": "2026-07-22T20:43:28+03:00",
   "method": "HEAD",
-  "source_kind": "data_gov_primary"
+  "source_kind": "data_gov_primary",
+  "last_probe": {
+    "url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
+    "final_url": "https://data.gov.ua/dataset/03cc1239-3988-4451-aa0d-aadb77448714/resource/d40cc921-39bb-44fd-be06-dc02589f45c6/download/uo.zip",
+    "etag": "\"6a5f2da9-1373e010\"",
+    "last_modified": "Tue, 21 Jul 2026 08:28:25 GMT",
+    "content_length": "326361104",
+    "checked_at": "2026-07-22T20:43:28+03:00",
+    "method": "HEAD",
+    "source_kind": "data_gov_primary"
+  }
 }
