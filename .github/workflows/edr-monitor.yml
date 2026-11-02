@@ -1,61 +1,52 @@
-name: EDRPOU Monitor
+name: EDR — LIGA360 company codes
 
 on:
-  workflow_dispatch: 
-
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: edrpou-monitor
-  cancel-in-progress: true
+  group: edr-liga-company-codes
+  cancel-in-progress: false
 
 jobs:
-  run-monitor:
+  match-company-codes:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Install system tools
+      - name: Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y p7zip-full
+          python -m pip install --disable-pip-version-check requests lxml
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
 
-      - name: Run monitor
+      - name: Run offline unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Build mappings from official UO XML
         env:
           EDR_UO_URL: ${{ secrets.EDR_UO_URL }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          EMAIL_FORCE: ${{ secrets.EMAIL_FORCE }}
-          EMAIL_SEND_NO_CHANGES: ${{ secrets.EMAIL_SEND_NO_CHANGES }}
-          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
-          TIMEZONE: Europe/Kyiv
         run: python scripts/edr_monitor.py
 
-      - name: Commit updated data and dashboard
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add data docs/data docs/index.html
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update EDRPOU monitor data"
-            git push
-          fi
+      - name: Save result as workflow artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edr-liga-companycodes
+          path: |
+            data/edrpou_names.csv
+            data/companycodes_all.csv
+            data/companycodes_review.csv
+            data/match_summary.json
+          retention-days: 14
+
+      # No automatic commit. Review matches before copying into OneDrive.
